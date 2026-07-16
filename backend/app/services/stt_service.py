@@ -1,8 +1,6 @@
 import asyncio
 from functools import partial
 
-from ..config import settings
-
 
 class STTService:
     async def transcribe(self, audio_path: str) -> str:
@@ -40,12 +38,12 @@ class FasterWhisperSTT(STTService):
 class OpenAIWhisperSTT(STTService):
     """Cloud STT using OpenAI Whisper API."""
 
-    def __init__(self):
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY not set in .env")
+    def __init__(self, api_key: str):
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set")
         from openai import OpenAI
 
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.client = OpenAI(api_key=api_key)
 
     async def transcribe(self, audio_path: str) -> str:
         loop = asyncio.get_event_loop()
@@ -67,10 +65,12 @@ class MockSTT(STTService):
         return "This is a mock transcription. Please configure STT service."
 
 
-def get_stt_service() -> STTService:
-    if settings.stt_mode == "api":
+def get_stt_service(mode: str = "local") -> STTService:
+    from ..config import settings
+
+    if mode == "api":
         try:
-            return OpenAIWhisperSTT()
+            return OpenAIWhisperSTT(settings.openai_api_key)
         except RuntimeError:
             return MockSTT()
     try:

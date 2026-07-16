@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import ChatBubble from "./ChatBubble";
-import type { Message } from "@/lib/mockData";
+import type { Message } from "@/lib/types";
 
 interface ChatWindowProps {
   messages: Message[];

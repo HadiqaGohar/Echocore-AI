@@ -2,14 +2,12 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
-from fastapi.responses import Response
 from sqlmodel import Session, select
 
 from ..database import get_session
 from ..models import Conversation, Message
 from ..services.pipeline import run_pipeline
 from ..utils.audio import save_upload_to_temp, convert_webm_to_wav, cleanup_file
-from ..config import settings
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -20,8 +18,10 @@ ALLOWED_AUDIO_TYPES = {
     "audio/mpeg",
     "audio/mp4",
     "audio/x-wav",
-    "application/octet-stream",  # curl WAV uploads
+    "application/octet-stream",
 }
+
+DEFAULT_USER_ID = 1
 
 
 @router.post("/process")
@@ -53,12 +53,12 @@ async def process_voice(
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conv = Conversation(title="New Conversation", user_id=1)
+        conv = Conversation(title="New Conversation", user_id=DEFAULT_USER_ID)
         session.add(conv)
         session.commit()
         session.refresh(conv)
 
-    # Save audio to temp file - detect format from content type and filename
+    # Detect audio format
     ext = ".webm"
     ct = (file.content_type or "").lower()
     fname = (file.filename or "").lower()
@@ -74,7 +74,7 @@ async def process_voice(
     tmp_path = save_upload_to_temp(audio_bytes, suffix=ext)
 
     try:
-        # Convert to WAV if needed (faster-whisper works best with WAV)
+        # Convert to WAV if needed
         if ext != ".wav":
             wav_path = convert_webm_to_wav(tmp_path)
         else:
@@ -88,20 +88,14 @@ async def process_voice(
         ).all()
         history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
-        # Override settings for this request
-        original_stt = settings.stt_mode
-        original_llm = settings.llm_provider
-        original_tts = settings.tts_mode
-        settings.stt_mode = stt_mode
-        settings.llm_provider = llm_provider
-        settings.tts_mode = tts_mode
-
-        try:
-            result = await run_pipeline(wav_path, conversation_history=history)
-        finally:
-            settings.stt_mode = original_stt
-            settings.llm_provider = original_llm
-            settings.tts_mode = original_tts
+        # Run pipeline with params (no global settings mutation)
+        result = await run_pipeline(
+            wav_path,
+            conversation_history=history,
+            stt_mode=stt_mode,
+            llm_provider=llm_provider,
+            tts_mode=tts_mode,
+        )
 
         # Save user message
         user_msg = Message(

@@ -1,3 +1,4 @@
+import asyncio
 from ..services.stt_service import get_stt_service
 from ..services.llm_service import get_llm_service
 from ..services.tts_service import get_tts_service
@@ -13,14 +14,17 @@ SYSTEM_PROMPT = (
 async def run_pipeline(
     audio_path: str,
     conversation_history: list[dict] | None = None,
+    stt_mode: str = "local",
+    llm_provider: str = "gemini",
+    tts_mode: str = "local",
 ) -> dict:
     """Run the full STT -> LLM -> TTS pipeline.
 
     Returns dict with: transcript, reply, audio_bytes, audio_content_type
     """
-    stt = get_stt_service()
-    llm = get_llm_service()
-    tts = get_tts_service()
+    stt = get_stt_service(stt_mode)
+    llm = get_llm_service(llm_provider)
+    tts = get_tts_service(tts_mode)
 
     # Step 1: Speech to Text
     transcript = await stt.transcribe(audio_path)

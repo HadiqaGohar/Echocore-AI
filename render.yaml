@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: echocore-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    envVars:
+      - key: STT_MODE
+        value: local
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: TTS_MODE
+        value: local
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./echocore.db
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+    disk:
+      name: data
+      mountPath: /app
+      sizeGB: 1

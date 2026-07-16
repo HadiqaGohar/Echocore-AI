@@ -1,7 +1,5 @@
 import httpx
 
-from ..config import settings
-
 
 class LLMService:
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
@@ -9,12 +7,12 @@ class LLMService:
 
 
 class GeminiLLM(LLMService):
-    def __init__(self):
-        if not settings.gemini_api_key:
-            raise RuntimeError("GEMINI_API_KEY not set in .env")
+    def __init__(self, api_key: str):
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY not set")
         from google import genai
 
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.client = genai.Client(api_key=api_key)
 
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
         contents = []
@@ -32,14 +30,14 @@ class GeminiLLM(LLMService):
 
 
 class OpenRouterLLM(LLMService):
-    def __init__(self):
-        if not settings.openrouter_api_key:
-            raise RuntimeError("OPENROUTER_API_KEY not set in .env")
+    def __init__(self, api_key: str):
+        if not api_key:
+            raise RuntimeError("OPENROUTER_API_KEY not set")
         from openai import AsyncOpenAI
 
         self.client = AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=settings.openrouter_api_key,
+            api_key=api_key,
         )
 
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
@@ -55,8 +53,8 @@ class OpenRouterLLM(LLMService):
 
 
 class OllamaLLM(LLMService):
-    def __init__(self):
-        self.base_url = settings.ollama_base_url
+    def __init__(self, base_url: str = "http://localhost:11434"):
+        self.base_url = base_url
 
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
         full_messages = []
@@ -89,13 +87,14 @@ class MockLLM(LLMService):
         )
 
 
-def get_llm_service() -> LLMService:
-    provider = settings.llm_provider.lower()
+def get_llm_service(provider: str = "gemini") -> LLMService:
+    from ..config import settings
+
     try:
         if provider == "openrouter":
-            return OpenRouterLLM()
+            return OpenRouterLLM(settings.openrouter_api_key)
         if provider == "ollama":
-            return OllamaLLM()
-        return GeminiLLM()
+            return OllamaLLM(settings.ollama_base_url)
+        return GeminiLLM(settings.gemini_api_key)
     except RuntimeError:
         return MockLLM()

@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User } from "lucide-react";
-import type { Message } from "@/lib/mockData";
+import { Bot, User, Volume2 } from "lucide-react";
+import type { Message } from "@/lib/types";
+import { api } from "@/lib/api";
 
 interface ChatBubbleProps {
   message: Message;
@@ -12,6 +13,13 @@ interface ChatBubbleProps {
 export default function ChatBubble({ message, index }: ChatBubbleProps) {
   const isUser = message.sender === "user";
 
+  const playAudio = () => {
+    if (message.audioUrl) {
+      const audio = new Audio(api.getAudioUrl(message.audioUrl));
+      audio.play().catch(console.error);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -19,7 +27,9 @@ export default function ChatBubble({ message, index }: ChatBubbleProps) {
       transition={{ duration: 0.25, delay: index * 0.03 }}
       className={`flex gap-4 px-4 py-5 ${isUser ? "justify-end" : "justify-start"}`}
     >
-      <div className={`flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"} w-full max-w-3xl`}>
+      <div
+        className={`flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"} w-full max-w-3xl`}
+      >
         {/* Avatar */}
         <div
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
@@ -36,10 +46,21 @@ export default function ChatBubble({ message, index }: ChatBubbleProps) {
         </div>
 
         {/* Content */}
-        <div className={`min-w-0 flex-1 ${isUser ? "flex flex-col items-end" : ""}`}>
+        <div
+          className={`min-w-0 flex-1 ${isUser ? "flex flex-col items-end" : ""}`}
+        >
           <p className="text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
             {message.text}
           </p>
+          {!isUser && message.audioUrl && (
+            <button
+              onClick={playAudio}
+              className="mt-2 flex items-center gap-1.5 text-xs text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              Play audio
+            </button>
+          )}
         </div>
       </div>
     </motion.div>

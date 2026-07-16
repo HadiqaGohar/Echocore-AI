@@ -1,8 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from ..config import settings
-
 
 class TTSService:
     async def synthesize(self, text: str) -> tuple[bytes, str]:
@@ -41,12 +39,13 @@ class Pyttsx3TTS(TTSService):
 class OpenAITTS(TTSService):
     """Cloud TTS using OpenAI TTS API."""
 
-    def __init__(self):
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY not set in .env")
+    def __init__(self, api_key: str, voice: str = "nova"):
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set")
         from openai import OpenAI
 
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.client = OpenAI(api_key=api_key)
+        self.voice = voice
 
     async def synthesize(self, text: str) -> tuple[bytes, str]:
         loop = asyncio.get_event_loop()
@@ -54,7 +53,7 @@ class OpenAITTS(TTSService):
         def _call():
             return self.client.audio.speech.create(
                 model="tts-1",
-                voice=settings.tts_voice or "nova",
+                voice=self.voice,
                 input=text,
                 response_format="opus",
             )
@@ -66,12 +65,12 @@ class OpenAITTS(TTSService):
 class ElevenLabsTTS(TTSService):
     """Cloud TTS using ElevenLabs."""
 
-    def __init__(self):
-        if not settings.elevenlabs_api_key:
-            raise RuntimeError("ELEVENLABS_API_KEY not set in .env")
+    def __init__(self, api_key: str):
+        if not api_key:
+            raise RuntimeError("ELEVENLABS_API_KEY not set")
         from elevenlabs.client import ElevenLabs
 
-        self.client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+        self.client = ElevenLabs(api_key=api_key)
 
     async def synthesize(self, text: str) -> tuple[bytes, str]:
         loop = asyncio.get_event_loop()
@@ -92,13 +91,11 @@ class MockTTS(TTSService):
     """Fallback mock TTS - returns a short silent WAV."""
 
     async def synthesize(self, text: str) -> tuple[bytes, str]:
-        import wave, struct
+        import wave, struct, io
 
         sample_rate = 16000
         duration = 1
         num_samples = sample_rate * duration
-
-        import io
 
         buf = io.BytesIO()
         with wave.open(buf, "w") as wav:
@@ -110,13 +107,14 @@ class MockTTS(TTSService):
         return buf.getvalue(), "audio/wav"
 
 
-def get_tts_service() -> TTSService:
-    mode = settings.tts_mode.lower()
+def get_tts_service(mode: str = "local") -> TTSService:
+    from ..config import settings
+
     try:
         if mode == "openai":
-            return OpenAITTS()
+            return OpenAITTS(settings.openai_api_key, settings.tts_voice)
         if mode == "elevenlabs":
-            return ElevenLabsTTS()
+            return ElevenLabsTTS(settings.elevenlabs_api_key)
         return Pyttsx3TTS()
     except RuntimeError:
         return MockTTS()
