@@ -13,8 +13,12 @@ class FasterWhisperSTT(STTService):
     """Local STT using faster-whisper."""
 
     def __init__(self):
-        from faster_whisper import WhisperModel
-
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError:
+            raise RuntimeError(
+                "faster-whisper not installed. Run: pip install faster-whisper"
+            )
         self.model = WhisperModel(
             "large-v3", device="cpu", compute_type="int8"
         )
@@ -37,6 +41,8 @@ class OpenAIWhisperSTT(STTService):
     """Cloud STT using OpenAI Whisper API."""
 
     def __init__(self):
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY not set in .env")
         from openai import OpenAI
 
         self.client = OpenAI(api_key=settings.openai_api_key)
@@ -54,7 +60,20 @@ class OpenAIWhisperSTT(STTService):
         return result.text
 
 
+class MockSTT(STTService):
+    """Fallback mock STT for testing without real models."""
+
+    async def transcribe(self, audio_path: str) -> str:
+        return "This is a mock transcription. Please configure STT service."
+
+
 def get_stt_service() -> STTService:
     if settings.stt_mode == "api":
-        return OpenAIWhisperSTT()
-    return FasterWhisperSTT()
+        try:
+            return OpenAIWhisperSTT()
+        except RuntimeError:
+            return MockSTT()
+    try:
+        return FasterWhisperSTT()
+    except RuntimeError:
+        return MockSTT()

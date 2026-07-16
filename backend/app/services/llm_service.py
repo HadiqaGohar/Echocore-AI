@@ -10,6 +10,8 @@ class LLMService:
 
 class GeminiLLM(LLMService):
     def __init__(self):
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY not set in .env")
         from google import genai
 
         self.client = genai.Client(api_key=settings.gemini_api_key)
@@ -31,6 +33,8 @@ class GeminiLLM(LLMService):
 
 class OpenRouterLLM(LLMService):
     def __init__(self):
+        if not settings.openrouter_api_key:
+            raise RuntimeError("OPENROUTER_API_KEY not set in .env")
         from openai import AsyncOpenAI
 
         self.client = AsyncOpenAI(
@@ -73,10 +77,25 @@ class OllamaLLM(LLMService):
             return resp.json()["message"]["content"]
 
 
+class MockLLM(LLMService):
+    """Fallback mock LLM for testing without API keys."""
+
+    async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
+        last_user = messages[-1]["content"] if messages else "hello"
+        return (
+            f"I received your message: '{last_user}'. "
+            "This is a mock reply. Please configure an LLM provider in .env "
+            "(GEMINI_API_KEY, OPENROUTER_API_KEY, or Ollama)."
+        )
+
+
 def get_llm_service() -> LLMService:
     provider = settings.llm_provider.lower()
-    if provider == "openrouter":
-        return OpenRouterLLM()
-    if provider == "ollama":
-        return OllamaLLM()
-    return GeminiLLM()
+    try:
+        if provider == "openrouter":
+            return OpenRouterLLM()
+        if provider == "ollama":
+            return OllamaLLM()
+        return GeminiLLM()
+    except RuntimeError:
+        return MockLLM()

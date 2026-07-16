@@ -20,6 +20,7 @@ ALLOWED_AUDIO_TYPES = {
     "audio/mpeg",
     "audio/mp4",
     "audio/x-wav",
+    "application/octet-stream",  # curl WAV uploads
 }
 
 
@@ -57,14 +58,18 @@ async def process_voice(
         session.commit()
         session.refresh(conv)
 
-    # Save audio to temp file
+    # Save audio to temp file - detect format from content type and filename
     ext = ".webm"
-    if file.content_type and "wav" in file.content_type:
+    ct = (file.content_type or "").lower()
+    fname = (file.filename or "").lower()
+    if "wav" in ct or fname.endswith(".wav"):
         ext = ".wav"
-    elif file.content_type and "ogg" in file.content_type:
+    elif "ogg" in ct or fname.endswith(".ogg"):
         ext = ".ogg"
-    elif file.content_type and "mpeg" in file.content_type:
+    elif "mpeg" in ct or fname.endswith(".mp3"):
         ext = ".mp3"
+    elif "mp4" in ct or fname.endswith(".m4a"):
+        ext = ".m4a"
 
     tmp_path = save_upload_to_temp(audio_bytes, suffix=ext)
 
@@ -106,8 +111,15 @@ async def process_voice(
         )
         session.add(user_msg)
 
-        # Save AI reply
-        audio_filename = f"{uuid.uuid4().hex}.ogg"
+        # Save AI reply audio
+        content_type_to_ext = {
+            "audio/ogg": ".ogg",
+            "audio/wav": ".wav",
+            "audio/mpeg": ".mp3",
+            "audio/mp4": ".m4a",
+        }
+        audio_ext = content_type_to_ext.get(result["audio_content_type"], ".ogg")
+        audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
         audio_dir = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
         os.makedirs(audio_dir, exist_ok=True)
         audio_path = os.path.join(audio_dir, audio_filename)

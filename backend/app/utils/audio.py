@@ -3,8 +3,11 @@ import tempfile
 
 
 def convert_webm_to_wav(webm_path: str) -> str:
-    """Convert WebM audio to WAV using pydub (requires ffmpeg)."""
-    from pydub import AudioSegment
+    """Convert WebM/OGG/MP3 audio to WAV using pydub (requires ffmpeg)."""
+    try:
+        from pydub import AudioSegment
+    except ImportError:
+        raise RuntimeError("pydub not installed. Run: pip install pydub")
 
     audio = AudioSegment.from_file(webm_path)
     wav_path = webm_path.rsplit(".", 1)[0] + ".wav"
