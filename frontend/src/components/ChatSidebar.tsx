@@ -9,7 +9,10 @@ import {
   ChevronLeft,
   Search,
   Trash2,
+  Volume2,
+  BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import type { Conversation } from "@/lib/types";
 
@@ -133,6 +136,24 @@ export default function ChatSidebar({
             <Plus className="h-4 w-4" />
             New chat
           </button>
+        </div>
+
+        {/* Quick nav */}
+        <div className="px-3 pb-2 flex gap-2">
+          <Link
+            href="/tts"
+            className="flex flex-1 items-center gap-2 rounded-lg border border-black/5 bg-white/50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-white dark:border-white/5 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            TTS
+          </Link>
+          <Link
+            href="/dashboard"
+            className="flex flex-1 items-center gap-2 rounded-lg border border-black/5 bg-white/50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-white dark:border-white/5 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Stats
+          </Link>
         </div>
 
         {/* History */}

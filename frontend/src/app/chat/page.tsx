@@ -5,7 +5,9 @@ import ChatSidebar from "@/components/ChatSidebar";
 import ChatHeader from "@/components/ChatHeader";
 import RecordButton, { type RecordingState } from "@/components/RecordButton";
 import ChatWindow from "@/components/ChatWindow";
+import ChatInput from "@/components/ChatInput";
 import ControlsBar from "@/components/ControlsBar";
+import FileUpload from "@/components/FileUpload";
 import { api } from "@/lib/api";
 import type { Message, LanguageCode, VoiceGender } from "@/lib/types";
 
@@ -20,6 +22,8 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
+  const [showFileUpload, setShowFileUpload] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -70,12 +74,7 @@ export default function ChatPage() {
       const userMsgId = String(++idCounter);
       setMessages((prev) => [
         ...prev,
-        {
-          id: userMsgId,
-          sender: "user",
-          text: "Processing your voice...",
-          timestamp: new Date(),
-        },
+        { id: userMsgId, sender: "user", text: "Processing your voice...", timestamp: new Date() },
       ]);
 
       const result = await api.processVoice(audioBlob, {
@@ -87,14 +86,10 @@ export default function ChatPage() {
         voiceGender,
       });
 
-      if (!conversationId) {
-        setConversationId(result.conversation_id);
-      }
+      if (!conversationId) setConversationId(result.conversation_id);
 
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === userMsgId ? { ...msg, text: result.transcript } : msg
-        )
+        prev.map((msg) => (msg.id === userMsgId ? { ...msg, text: result.transcript } : msg))
       );
 
       const aiMsg: Message = {
@@ -121,6 +116,55 @@ export default function ChatPage() {
       setRecordingState("idle");
       setMessages((prev) => prev.filter((msg) => msg.text !== "Processing your voice..."));
     }
+  };
+
+  const handleSendText = async (text: string) => {
+    const userMsgId = String(++idCounter);
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, sender: "user", text, timestamp: new Date() },
+    ]);
+    setRecordingState("processing");
+
+    try {
+      const result = await api.sendTextMessage(text, {
+        conversationId: conversationId || undefined,
+        llmProvider: "gemini",
+        ttsMode: "edge",
+        language,
+        voiceGender,
+      });
+
+      if (!conversationId) setConversationId(result.conversation_id);
+
+      const aiMsg: Message = {
+        id: String(++idCounter),
+        sender: "ai",
+        text: result.reply,
+        audioUrl: result.audio_url || undefined,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+
+      if (result.audio_url) {
+        setRecordingState("speaking");
+        const audio = new Audio(api.getAudioUrl(result.audio_url));
+        audioRef.current = audio;
+        audio.onended = () => setRecordingState("idle");
+        audio.onerror = () => setRecordingState("idle");
+        audio.play().catch(() => setRecordingState("idle"));
+      } else {
+        setRecordingState("idle");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setRecordingState("idle");
+    }
+  };
+
+  const handleFileTranscription = (text: string) => {
+    setShowFileUpload(false);
+    handleSendText(text);
   };
 
   const handleClearChat = () => {
@@ -163,23 +207,59 @@ export default function ChatPage() {
           {error && (
             <div className="mx-auto mt-2 max-w-3xl rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-500 dark:bg-red-500/10 dark:text-red-400">
               {error}
-              <button onClick={() => setError(null)} className="ml-2 underline">
-                dismiss
-              </button>
+              <button onClick={() => setError(null)} className="ml-2 underline">dismiss</button>
             </div>
           )}
 
           {messages.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
               <div className="text-center">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  EchoCore
-                </h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  How can I help you today?
-                </p>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">EchoCore</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">How can I help you today?</p>
               </div>
-              <RecordButton state={recordingState} onClick={handleRecordClick} />
+
+              {showFileUpload ? (
+                <div className="w-full max-w-md">
+                  <FileUpload language={language} onTranscription={handleFileTranscription} />
+                  <button onClick={() => setShowFileUpload(false)} className="mt-2 text-xs text-gray-400 hover:text-gray-600">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <RecordButton state={recordingState} onClick={handleRecordClick} />
+
+                  {/* Input mode toggle */}
+                  <div className="flex items-center gap-1 rounded-full border border-black/10 bg-white/50 p-1 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+                    <button
+                      onClick={() => setInputMode("voice")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                        inputMode === "voice"
+                          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                          : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                      }`}
+                    >
+                      Voice
+                    </button>
+                    <button
+                      onClick={() => setInputMode("text")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                        inputMode === "text"
+                          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                          : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                      }`}
+                    >
+                      Text
+                    </button>
+                    <button
+                      onClick={() => setShowFileUpload(!showFileUpload)}
+                      className="rounded-full px-3 py-1.5 text-xs font-medium text-gray-500 transition-all hover:text-gray-700 dark:text-gray-400"
+                    >
+                      File
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-1 flex-col">
@@ -187,7 +267,28 @@ export default function ChatPage() {
 
               <div className="border-t border-black/5 px-4 py-4 dark:border-white/5">
                 <div className="mx-auto flex max-w-3xl flex-col items-center gap-4">
-                  <RecordButton state={recordingState} onClick={handleRecordClick} />
+                  {showFileUpload ? (
+                    <div className="w-full">
+                      <FileUpload language={language} onTranscription={handleFileTranscription} />
+                      <button onClick={() => setShowFileUpload(false)} className="mt-2 text-xs text-gray-400 hover:text-gray-600">
+                        Cancel
+                      </button>
+                    </div>
+                  ) : inputMode === "voice" ? (
+                    <RecordButton state={recordingState} onClick={handleRecordClick} />
+                  ) : (
+                    <div className="w-full">
+                      <ChatInput
+                        mode={inputMode}
+                        language={language}
+                        voiceGender={voiceGender}
+                        onModeChange={setInputMode}
+                        onSendMessage={handleSendText}
+                        onFileUpload={() => setShowFileUpload(true)}
+                      />
+                    </div>
+                  )}
+
                   <ControlsBar
                     mode={mode}
                     language={language}

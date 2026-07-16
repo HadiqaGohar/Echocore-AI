@@ -1,12 +1,16 @@
 import os
 import uuid
+import time
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlmodel import Session, select
 
 from ..database import get_session
 from ..models import Conversation, Message
+from ..models.analytics import UsageLog
 from ..services.pipeline import run_pipeline
+from ..services.llm_service import get_llm_service
+from ..services.tts_service import get_tts_service
 from ..utils.audio import save_upload_to_temp, convert_webm_to_wav, cleanup_file
 
 router = APIRouter(prefix="/voice", tags=["voice"])
@@ -23,6 +27,12 @@ ALLOWED_AUDIO_TYPES = {
 
 DEFAULT_USER_ID = 1
 
+SYSTEM_PROMPT = (
+    "You are EchoCore, a friendly and helpful voice AI assistant. "
+    "Keep your responses concise and conversational. "
+    "Always respond in the same language/script the user uses."
+)
+
 
 @router.post("/process")
 async def process_voice(
@@ -35,21 +45,15 @@ async def process_voice(
     voice_gender: str = Form(default="female"),
     session: Session = Depends(get_session),
 ):
-    # Validate audio type
     if file.content_type and file.content_type not in ALLOWED_AUDIO_TYPES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Unsupported audio type: {file.content_type}",
-        )
+        raise HTTPException(status_code=422, detail=f"Unsupported audio type: {file.content_type}")
 
-    # Read uploaded audio
     audio_bytes = await file.read()
     if len(audio_bytes) == 0:
         raise HTTPException(status_code=422, detail="Empty audio file")
     if len(audio_bytes) > 50 * 1024 * 1024:
         raise HTTPException(status_code=422, detail="File too large (max 50MB)")
 
-    # Create or get conversation
     if conversation_id:
         conv = session.get(Conversation, conversation_id)
         if not conv:
@@ -60,7 +64,6 @@ async def process_voice(
         session.commit()
         session.refresh(conv)
 
-    # Detect audio format
     ext = ".webm"
     ct = (file.content_type or "").lower()
     fname = (file.filename or "").lower()
@@ -74,15 +77,14 @@ async def process_voice(
         ext = ".m4a"
 
     tmp_path = save_upload_to_temp(audio_bytes, suffix=ext)
+    start_time = time.time()
 
     try:
-        # Convert to WAV if needed
         if ext != ".wav":
             wav_path = convert_webm_to_wav(tmp_path)
         else:
             wav_path = tmp_path
 
-        # Get conversation history for context
         history_msgs = session.exec(
             select(Message)
             .where(Message.conversation_id == conv.id)
@@ -90,7 +92,6 @@ async def process_voice(
         ).all()
         history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
-        # Run pipeline with params (no global settings mutation)
         result = await run_pipeline(
             wav_path,
             conversation_history=history,
@@ -101,21 +102,10 @@ async def process_voice(
             voice_gender=voice_gender,
         )
 
-        # Save user message
-        user_msg = Message(
-            conversation_id=conv.id,
-            role="user",
-            content=result["transcript"],
-        )
+        user_msg = Message(conversation_id=conv.id, role="user", content=result["transcript"])
         session.add(user_msg)
 
-        # Save AI reply audio
-        content_type_to_ext = {
-            "audio/ogg": ".ogg",
-            "audio/wav": ".wav",
-            "audio/mpeg": ".mp3",
-            "audio/mp4": ".m4a",
-        }
+        content_type_to_ext = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3", "audio/mp4": ".m4a"}
         audio_ext = content_type_to_ext.get(result["audio_content_type"], ".ogg")
         audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
         audio_dir = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
@@ -124,20 +114,28 @@ async def process_voice(
         with open(audio_path, "wb") as f:
             f.write(result["audio_bytes"])
 
-        ai_msg = Message(
-            conversation_id=conv.id,
-            role="assistant",
-            content=result["reply"],
-            audio_url=f"/audio/{audio_filename}",
-        )
+        ai_msg = Message(conversation_id=conv.id, role="assistant", content=result["reply"], audio_url=f"/audio/{audio_filename}")
         session.add(ai_msg)
 
-        # Update conversation title from first user message
         if conv.title == "New Conversation":
             conv.title = result["transcript"][:80]
 
         session.commit()
         session.refresh(ai_msg)
+
+        # Log analytics
+        try:
+            elapsed_ms = (time.time() - start_time) * 1000
+            log = UsageLog(
+                user_id=DEFAULT_USER_ID, interaction_type="voice", language=language,
+                voice_gender=voice_gender, stt_mode=stt_mode, tts_mode=tts_mode,
+                llm_provider=llm_provider, transcript_length=len(result["transcript"]),
+                reply_length=len(result["reply"]), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
+            )
+            session.add(log)
+            session.commit()
+        except Exception:
+            pass
 
         return {
             "transcript": result["transcript"],
@@ -145,9 +143,94 @@ async def process_voice(
             "audio_url": f"/audio/{audio_filename}",
             "conversation_id": conv.id,
             "message_id": ai_msg.id,
+            "detected_language": result.get("detected_language", language),
         }
-
     finally:
         cleanup_file(tmp_path)
         if ext != ".wav":
             cleanup_file(wav_path)
+
+
+@router.post("/text")
+async def process_text(
+    text: str = Form(...),
+    conversation_id: int | None = Form(default=None),
+    llm_provider: str = Form(default="gemini"),
+    tts_mode: str = Form(default="edge"),
+    language: str = Form(default="en"),
+    voice_gender: str = Form(default="female"),
+    session: Session = Depends(get_session),
+):
+    """Process text input directly (no STT needed)."""
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Text cannot be empty")
+
+    start_time = time.time()
+
+    if conversation_id:
+        conv = session.get(Conversation, conversation_id)
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    else:
+        conv = Conversation(title=text[:80], user_id=DEFAULT_USER_ID)
+        session.add(conv)
+        session.commit()
+        session.refresh(conv)
+
+    # Get history
+    history_msgs = session.exec(
+        select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at)
+    ).all()
+    history = [{"role": m.role, "content": m.content} for m in history_msgs]
+
+    # LLM
+    llm = get_llm_service(llm_provider)
+    messages = history + [{"role": "user", "content": text}]
+    reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
+
+    # TTS
+    tts = get_tts_service(tts_mode)
+    audio_bytes, audio_content_type = await tts.synthesize(reply, language=language, voice_gender=voice_gender)
+
+    # Save
+    user_msg = Message(conversation_id=conv.id, role="user", content=text)
+    session.add(user_msg)
+
+    content_type_to_ext = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3"}
+    audio_ext = content_type_to_ext.get(audio_content_type, ".mp3")
+    audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
+    audio_dir = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
+    os.makedirs(audio_dir, exist_ok=True)
+    with open(os.path.join(audio_dir, audio_filename), "wb") as f:
+        f.write(audio_bytes)
+
+    ai_msg = Message(conversation_id=conv.id, role="assistant", content=reply, audio_url=f"/audio/{audio_filename}")
+    session.add(ai_msg)
+
+    if conv.title == "New Conversation":
+        conv.title = text[:80]
+
+    session.commit()
+    session.refresh(ai_msg)
+
+    # Log
+    try:
+        elapsed_ms = (time.time() - start_time) * 1000
+        log = UsageLog(
+            user_id=DEFAULT_USER_ID, interaction_type="text", language=language,
+            voice_gender=voice_gender, stt_mode="text", tts_mode=tts_mode,
+            llm_provider=llm_provider, transcript_length=len(text),
+            reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
+        )
+        session.add(log)
+        session.commit()
+    except Exception:
+        pass
+
+    return {
+        "transcript": text,
+        "reply": reply,
+        "audio_url": f"/audio/{audio_filename}",
+        "conversation_id": conv.id,
+        "message_id": ai_msg.id,
+    }

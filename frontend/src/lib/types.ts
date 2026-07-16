@@ -19,6 +19,7 @@ export interface VoiceProcessResponse {
   audio_url: string | null;
   conversation_id: number;
   message_id: number;
+  detected_language?: string;
 }
 
 export interface ApiMessage {
@@ -30,7 +31,7 @@ export interface ApiMessage {
   created_at: string;
 }
 
-export type LanguageCode = "en" | "hi" | "ur" | "ps" | "ar" | "bn" | "tr" | "fr" | "de" | "es";
+export type LanguageCode = "en" | "hi" | "ur" | "ur-roman" | "ps" | "ar" | "bn" | "tr" | "fr" | "de" | "es";
 
 export interface LanguageOption {
   code: LanguageCode;
@@ -43,6 +44,7 @@ export const LANGUAGES: LanguageOption[] = [
   { code: "en", name: "English", nativeName: "English", flag: "🇺🇸" },
   { code: "hi", name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
   { code: "ur", name: "Urdu", nativeName: "اردو", flag: "🇵🇰" },
+  { code: "ur-roman", name: "Roman Urdu", nativeName: "Roman Urdu", flag: "🇵🇰" },
   { code: "ps", name: "Pashto", nativeName: "پښتو", flag: "🇦🇫" },
   { code: "ar", name: "Arabic", nativeName: "العربية", flag: "🇸🇦" },
   { code: "bn", name: "Bengali", nativeName: "বাংলা", flag: "🇧🇩" },
@@ -53,3 +55,23 @@ export const LANGUAGES: LanguageOption[] = [
 ];
 
 export type VoiceGender = "male" | "female";
+
+export interface DashboardData {
+  total_conversations: number;
+  total_messages: number;
+  conversations_today: number;
+  messages_today: number;
+  total_tts_requests: number;
+  language_stats: Record<string, { count: number; type_counts: Record<string, number> }>;
+  interaction_stats: Record<string, number>;
+  daily_activity: Array<{ date: string; label: string; messages: number }>;
+  gender_stats: Record<string, number>;
+}
+
+export interface TranscriptionResult {
+  transcript: string;
+  filename: string;
+  language: string;
+  processing_time_ms: number;
+  file_size_bytes: number;
+}
