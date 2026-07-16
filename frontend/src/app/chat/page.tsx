@@ -61,7 +61,7 @@ export default function ChatPage() {
   const handleToggleMode = () => setMode((p) => (p === "local" ? "api" : "local"));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#212121]">
+    <div className="gradient-bg flex h-screen overflow-hidden">
       <ChatSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNewChat={handleClearChat} />
 
       <div className="flex flex-1 flex-col">

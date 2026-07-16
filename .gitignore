@@ -43,3 +43,6 @@ venv/
 # Database
 *.db
 *.sqlite3
+
+# Audio files
+backend/audio/

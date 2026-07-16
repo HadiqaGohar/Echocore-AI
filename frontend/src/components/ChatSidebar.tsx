@@ -70,7 +70,7 @@ export default function ChatSidebar({ open, onClose, onNewChat }: ChatSidebarPro
         initial={false}
         animate={{ width: open ? 260 : 0, opacity: open ? 1 : 0 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="relative z-50 flex h-full flex-col overflow-hidden border-r border-black/10 bg-gray-100 dark:border-white/10 dark:bg-[#171717] shrink-0"
+        className="relative z-50 flex h-full flex-col overflow-hidden border-r border-black/5 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-black/20 shrink-0"
       >
         {/* Top actions */}
         <div className="flex items-center justify-between p-3">
@@ -120,7 +120,7 @@ export default function ChatSidebar({ open, onClose, onNewChat }: ChatSidebarPro
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="absolute right-1 flex items-center gap-0.5 rounded-lg bg-white p-0.5 shadow-lg dark:bg-[#2f2f2f]"
+                        className="absolute right-1 flex items-center gap-0.5 rounded-lg bg-white/80 backdrop-blur-sm p-0.5 shadow-lg dark:bg-black/40"
                       >
                         <button className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-black/5 hover:text-gray-900 dark:hover:bg-white/10 dark:hover:text-white">
                           <Edit3 className="h-3.5 w-3.5" />

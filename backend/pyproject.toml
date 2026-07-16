@@ -1,0 +1,8 @@
+[project]
+name = "echocore-backend"
+version = "0.1.0"
+description = "EchoCore Voice AI Assistant Backend"
+requires-python = ">=3.11"
+
+[tool.uv]
+dev-dependencies = ["pytest", "httpx"]

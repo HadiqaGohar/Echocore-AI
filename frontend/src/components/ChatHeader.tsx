@@ -11,7 +11,7 @@ export default function ChatHeader({ onToggleSidebar }: ChatHeaderProps) {
   const { darkMode, toggleDarkMode } = useDarkMode();
 
   return (
-    <header className="flex h-14 shrink-0 items-center border-b border-black/10 bg-white dark:border-white/10 dark:bg-[#212121] px-4">
+    <header className="flex h-14 shrink-0 items-center border-b border-black/5 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-black/20 px-4">
       <button
         onClick={onToggleSidebar}
         className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
