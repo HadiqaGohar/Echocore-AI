@@ -3,6 +3,7 @@ import uuid
 import time
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..database import get_session
@@ -32,6 +33,15 @@ SYSTEM_PROMPT = (
     "Keep your responses concise and conversational. "
     "Always respond in the same language/script the user uses."
 )
+
+
+class TextChatRequest(BaseModel):
+    text: str
+    conversation_id: int | None = None
+    llm_provider: str = "gemini"
+    tts_mode: str = "edge"
+    language: str = "en"
+    voice_gender: str = "female"
 
 
 @router.post("/process")
@@ -160,25 +170,18 @@ async def process_voice(
 
 @router.post("/text")
 async def process_text(
-    text: str = Form(default=None),
-    text_input: str = Form(default=None),
-    conversation_id: int | None = Form(default=None),
-    llm_provider: str = Form(default="gemini"),
-    tts_mode: str = Form(default="edge"),
-    language: str = Form(default="en"),
-    voice_gender: str = Form(default="female"),
+    request: TextChatRequest,
     session: Session = Depends(get_session),
 ):
-    """Process text input directly (no STT needed)."""
-    # Accept either 'text' or 'text_input' field
-    actual_text = text or text_input
-    if not actual_text or not actual_text.strip():
+    """Process text input directly (no STT needed). Accepts JSON body."""
+    actual_text = request.text.strip() if request.text else ""
+    if not actual_text:
         raise HTTPException(status_code=422, detail="Text cannot be empty")
 
     start_time = time.time()
 
-    if conversation_id:
-        conv = session.get(Conversation, conversation_id)
+    if request.conversation_id:
+        conv = session.get(Conversation, request.conversation_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
@@ -194,13 +197,13 @@ async def process_text(
     history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
     # LLM
-    llm = get_llm_service(llm_provider)
+    llm = get_llm_service(request.llm_provider)
     messages = history + [{"role": "user", "content": actual_text}]
     reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
 
     # TTS
-    tts = get_tts_service(tts_mode)
-    audio_bytes, audio_content_type = await tts.synthesize(reply, language=language, voice_gender=voice_gender)
+    tts = get_tts_service(request.tts_mode)
+    audio_bytes, audio_content_type = await tts.synthesize(reply, language=request.language, voice_gender=request.voice_gender)
 
     # Save
     user_msg = Message(conversation_id=conv.id, role="user", content=actual_text)
@@ -227,9 +230,9 @@ async def process_text(
     try:
         elapsed_ms = (time.time() - start_time) * 1000
         log = UsageLog(
-            user_id=DEFAULT_USER_ID, interaction_type="text", language=language,
-            voice_gender=voice_gender, stt_mode="text", tts_mode=tts_mode,
-            llm_provider=llm_provider, transcript_length=len(actual_text),
+            user_id=DEFAULT_USER_ID, interaction_type="text", language=request.language,
+            voice_gender=request.voice_gender, stt_mode="text", tts_mode=request.tts_mode,
+            llm_provider=request.llm_provider, transcript_length=len(actual_text),
             reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
         )
         session.add(log)
@@ -244,3 +247,12 @@ async def process_text(
         "conversation_id": conv.id,
         "message_id": ai_msg.id,
     }
+
+
+@router.post("/chat")
+async def chat_text(
+    request: TextChatRequest,
+    session: Session = Depends(get_session),
+):
+    """Chat with text input. Used by browser STT flow - text already transcribed in browser."""
+    return await process_text(request, session)
