@@ -1,4 +1,7 @@
+import logging
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -93,9 +96,19 @@ def get_llm_service(provider: str = "gemini") -> LLMService:
 
     try:
         if provider == "openrouter":
-            return OpenRouterLLM(settings.openrouter_api_key)
+            key = settings.openrouter_api_key
+            if not key:
+                logger.warning("OPENROUTER_API_KEY is empty, using MockLLM")
+                return MockLLM()
+            return OpenRouterLLM(key)
         if provider == "ollama":
             return OllamaLLM(settings.ollama_base_url)
-        return GeminiLLM(settings.gemini_api_key)
-    except RuntimeError:
+        key = settings.gemini_api_key
+        if not key:
+            logger.warning("GEMINI_API_KEY is empty, using MockLLM")
+            return MockLLM()
+        logger.info(f"Using GeminiLLM with key length={len(key)}")
+        return GeminiLLM(key)
+    except Exception as e:
+        logger.error(f"Failed to init LLM provider '{provider}': {e}")
         return MockLLM()

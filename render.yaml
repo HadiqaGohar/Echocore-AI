@@ -9,13 +9,13 @@ services:
       - key: LLM_PROVIDER
         value: gemini
       - key: TTS_MODE
-        value: local
+        value: edge
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
         value: sqlite:///./echocore.db
       - key: CORS_ORIGINS
-        sync: false
+        value: https://echocore-ai.vercel.app
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY

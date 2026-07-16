@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..database import get_session
 from ..models.analytics import UsageLog, TTSRequest
@@ -14,7 +14,7 @@ DEFAULT_USER_ID = 1
 @router.get("/dashboard")
 async def get_dashboard(session: Session = Depends(get_session)):
     """Get analytics dashboard data."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_ago = today - timedelta(days=7)
     month_ago = today - timedelta(days=30)

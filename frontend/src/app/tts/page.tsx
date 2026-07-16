@@ -3,8 +3,9 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Download, Volume2, Loader2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Play, Download, Volume2, Loader2, Copy, Check, Sun, Moon } from "lucide-react";
 import { api } from "@/lib/api";
+import { useDarkMode } from "@/lib/darkModeContext";
 import LanguageSelector from "@/components/LanguageSelector";
 import type { LanguageCode, VoiceGender } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export default function TTSPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
   const handlePlay = async () => {
     if (!text.trim()) return;
@@ -64,9 +66,14 @@ export default function TTSPage() {
             <span className="text-sm font-medium">Back to Chat</span>
           </Link>
           <h1 className="text-sm font-bold text-gray-900 dark:text-white">TTS Converter</h1>
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
+              Dashboard
+            </Link>
+            <button onClick={toggleDarkMode} className="rounded-lg p-2 text-gray-500 hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10">
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
       </nav>
 

@@ -1,6 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class UsageLog(SQLModel, table=True):
@@ -17,7 +21,7 @@ class UsageLog(SQLModel, table=True):
     reply_length: int = 0
     processing_time_ms: float = 0
     had_audio: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class TTSRequest(SQLModel, table=True):
@@ -29,4 +33,4 @@ class TTSRequest(SQLModel, table=True):
     voice_gender: str = "female"
     tts_mode: str = "edge"
     text_length: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)

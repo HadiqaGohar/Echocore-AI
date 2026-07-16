@@ -1,4 +1,5 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,11 +10,19 @@ from .config import settings
 from .database import create_db_and_tables
 from .routers import audio, conversations, auth, tts, analytics, transcribe
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
     os.makedirs("audio", exist_ok=True)
+    logger.info(f"EchoCore starting...")
+    logger.info(f"  GEMINI_API_KEY: {'set (length=' + str(len(settings.gemini_api_key)) + ')' if settings.gemini_api_key else 'EMPTY - using MockLLM'}")
+    logger.info(f"  TTS_MODE: {settings.tts_mode}")
+    logger.info(f"  STT_MODE: {settings.stt_mode}")
+    logger.info(f"  LLM_PROVIDER: {settings.llm_provider}")
+    logger.info(f"  CORS_ORIGINS: {settings.cors_origins}")
     yield
 
 

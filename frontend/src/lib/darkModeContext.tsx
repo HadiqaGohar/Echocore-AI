@@ -14,10 +14,21 @@ const DarkModeContext = createContext<DarkModeContextType>({
 
 export function DarkModeProvider({ children }: { children: ReactNode }) {
   const [darkMode, setDarkMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    const saved = localStorage.getItem("echocore-dark-mode");
+    if (saved !== null) {
+      setDarkMode(saved === "true");
+    }
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+    localStorage.setItem("echocore-dark-mode", String(darkMode));
+  }, [darkMode, mounted]);
 
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 

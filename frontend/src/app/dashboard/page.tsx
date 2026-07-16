@@ -13,13 +13,17 @@ import {
   TrendingUp,
   Calendar,
   Loader2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useDarkMode } from "@/lib/darkModeContext";
 import type { DashboardData } from "@/lib/types";
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
   useEffect(() => {
     api.getDashboard().then(setData).catch(() => {}).finally(() => setLoading(false));
@@ -62,9 +66,14 @@ export default function DashboardPage() {
             <span className="text-sm font-medium">Back to Chat</span>
           </Link>
           <h1 className="text-sm font-bold text-gray-900 dark:text-white">Analytics Dashboard</h1>
-          <Link href="/tts" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
-            TTS Converter
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/tts" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
+              TTS Converter
+            </Link>
+            <button onClick={toggleDarkMode} className="rounded-lg p-2 text-gray-500 hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10">
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
       </nav>
 

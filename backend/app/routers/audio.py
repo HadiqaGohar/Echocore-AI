@@ -1,6 +1,7 @@
 import os
 import uuid
 import time
+import logging
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ from ..services.pipeline import run_pipeline
 from ..services.llm_service import get_llm_service
 from ..services.tts_service import get_tts_service
 from ..utils.audio import save_upload_to_temp, convert_webm_to_wav, cleanup_file
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -180,73 +183,81 @@ async def process_text(
 
     start_time = time.time()
 
-    if request.conversation_id:
-        conv = session.get(Conversation, request.conversation_id)
-        if not conv:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-    else:
-        conv = Conversation(title=actual_text[:80], user_id=DEFAULT_USER_ID)
-        session.add(conv)
-        session.commit()
-        session.refresh(conv)
-
-    # Get history
-    history_msgs = session.exec(
-        select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at)
-    ).all()
-    history = [{"role": m.role, "content": m.content} for m in history_msgs]
-
-    # LLM
-    llm = get_llm_service(request.llm_provider)
-    messages = history + [{"role": "user", "content": actual_text}]
-    reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
-
-    # TTS
-    tts = get_tts_service(request.tts_mode)
-    audio_bytes, audio_content_type = await tts.synthesize(reply, language=request.language, voice_gender=request.voice_gender)
-
-    # Save
-    user_msg = Message(conversation_id=conv.id, role="user", content=actual_text)
-    session.add(user_msg)
-
-    content_type_to_ext = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3"}
-    audio_ext = content_type_to_ext.get(audio_content_type, ".mp3")
-    audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
-    audio_dir = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
-    os.makedirs(audio_dir, exist_ok=True)
-    with open(os.path.join(audio_dir, audio_filename), "wb") as f:
-        f.write(audio_bytes)
-
-    ai_msg = Message(conversation_id=conv.id, role="assistant", content=reply, audio_url=f"/audio/{audio_filename}")
-    session.add(ai_msg)
-
-    if conv.title == "New Conversation":
-        conv.title = actual_text[:80]
-
-    session.commit()
-    session.refresh(ai_msg)
-
-    # Log
     try:
-        elapsed_ms = (time.time() - start_time) * 1000
-        log = UsageLog(
-            user_id=DEFAULT_USER_ID, interaction_type="text", language=request.language,
-            voice_gender=request.voice_gender, stt_mode="text", tts_mode=request.tts_mode,
-            llm_provider=request.llm_provider, transcript_length=len(actual_text),
-            reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
-        )
-        session.add(log)
-        session.commit()
-    except Exception:
-        pass
+        if request.conversation_id:
+            conv = session.get(Conversation, request.conversation_id)
+            if not conv:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+        else:
+            conv = Conversation(title=actual_text[:80], user_id=DEFAULT_USER_ID)
+            session.add(conv)
+            session.commit()
+            session.refresh(conv)
 
-    return {
-        "transcript": actual_text,
-        "reply": reply,
-        "audio_url": f"/audio/{audio_filename}",
-        "conversation_id": conv.id,
-        "message_id": ai_msg.id,
-    }
+        # Get history
+        history_msgs = session.exec(
+            select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at)
+        ).all()
+        history = [{"role": m.role, "content": m.content} for m in history_msgs]
+
+        # LLM
+        logger.info(f"Text chat: provider={request.llm_provider}, text_len={len(actual_text)}")
+        llm = get_llm_service(request.llm_provider)
+        messages = history + [{"role": "user", "content": actual_text}]
+        reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
+        logger.info(f"LLM reply: {reply[:100]}...")
+
+        # TTS
+        tts = get_tts_service(request.tts_mode)
+        audio_bytes, audio_content_type = await tts.synthesize(reply, language=request.language, voice_gender=request.voice_gender)
+
+        # Save
+        user_msg = Message(conversation_id=conv.id, role="user", content=actual_text)
+        session.add(user_msg)
+
+        content_type_to_ext = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3"}
+        audio_ext = content_type_to_ext.get(audio_content_type, ".mp3")
+        audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
+        audio_dir = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
+        os.makedirs(audio_dir, exist_ok=True)
+        with open(os.path.join(audio_dir, audio_filename), "wb") as f:
+            f.write(audio_bytes)
+
+        ai_msg = Message(conversation_id=conv.id, role="assistant", content=reply, audio_url=f"/audio/{audio_filename}")
+        session.add(ai_msg)
+
+        if conv.title == "New Conversation":
+            conv.title = actual_text[:80]
+
+        session.commit()
+        session.refresh(ai_msg)
+
+        # Log
+        try:
+            elapsed_ms = (time.time() - start_time) * 1000
+            log = UsageLog(
+                user_id=DEFAULT_USER_ID, interaction_type="text", language=request.language,
+                voice_gender=request.voice_gender, stt_mode="text", tts_mode=request.tts_mode,
+                llm_provider=request.llm_provider, transcript_length=len(actual_text),
+                reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
+            )
+            session.add(log)
+            session.commit()
+        except Exception:
+            pass
+
+        return {
+            "transcript": actual_text,
+            "reply": reply,
+            "audio_url": f"/audio/{audio_filename}",
+            "conversation_id": conv.id,
+            "message_id": ai_msg.id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Text chat error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
 
 
 @router.post("/chat")
