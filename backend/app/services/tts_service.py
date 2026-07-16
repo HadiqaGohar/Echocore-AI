@@ -3,13 +3,26 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class TTSService:
-    async def synthesize(self, text: str) -> tuple[bytes, str]:
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
         """Returns (audio_bytes, content_type)."""
         raise NotImplementedError
 
 
+class EdgeTTS(TTSService):
+    """Free unlimited TTS via Microsoft Edge voices.
+    
+    Supports: Hindi (MadhurNeural), Urdu, English, Pashto, Arabic, Bangla, etc.
+    """
+
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
+        from .edge_tts_service import EdgeTTSService
+
+        service = EdgeTTSService()
+        return await service.synthesize(text, language, voice_gender)
+
+
 class Pyttsx3TTS(TTSService):
-    """Local TTS using pyttsx3. Outputs WAV."""
+    """Local TTS using pyttsx3. Outputs WAV. Free but robotic quality."""
 
     def __init__(self):
         try:
@@ -18,7 +31,7 @@ class Pyttsx3TTS(TTSService):
             raise RuntimeError("pyttsx3 not installed. Run: pip install pyttsx3")
         self.executor = ThreadPoolExecutor(max_workers=2)
 
-    async def synthesize(self, text: str) -> tuple[bytes, str]:
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(self.executor, self._generate, text)
 
@@ -37,7 +50,7 @@ class Pyttsx3TTS(TTSService):
 
 
 class OpenAITTS(TTSService):
-    """Cloud TTS using OpenAI TTS API."""
+    """Cloud TTS using OpenAI TTS API. PAID."""
 
     def __init__(self, api_key: str, voice: str = "nova"):
         if not api_key:
@@ -47,7 +60,7 @@ class OpenAITTS(TTSService):
         self.client = OpenAI(api_key=api_key)
         self.voice = voice
 
-    async def synthesize(self, text: str) -> tuple[bytes, str]:
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
         loop = asyncio.get_event_loop()
 
         def _call():
@@ -63,7 +76,7 @@ class OpenAITTS(TTSService):
 
 
 class ElevenLabsTTS(TTSService):
-    """Cloud TTS using ElevenLabs."""
+    """Cloud TTS using ElevenLabs. PAID."""
 
     def __init__(self, api_key: str):
         if not api_key:
@@ -72,7 +85,7 @@ class ElevenLabsTTS(TTSService):
 
         self.client = ElevenLabs(api_key=api_key)
 
-    async def synthesize(self, text: str) -> tuple[bytes, str]:
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
         loop = asyncio.get_event_loop()
 
         def _call():
@@ -90,7 +103,7 @@ class ElevenLabsTTS(TTSService):
 class MockTTS(TTSService):
     """Fallback mock TTS - returns a short silent WAV."""
 
-    async def synthesize(self, text: str) -> tuple[bytes, str]:
+    async def synthesize(self, text: str, language: str = "en", voice_gender: str = "female") -> tuple[bytes, str]:
         import wave, struct, io
 
         sample_rate = 16000
@@ -107,7 +120,8 @@ class MockTTS(TTSService):
         return buf.getvalue(), "audio/wav"
 
 
-def get_tts_service(mode: str = "local") -> TTSService:
+def get_tts_service(mode: str = "edge") -> TTSService:
+    """Get TTS service. Default is 'edge' (free, unlimited)."""
     from ..config import settings
 
     try:
@@ -115,6 +129,9 @@ def get_tts_service(mode: str = "local") -> TTSService:
             return OpenAITTS(settings.openai_api_key, settings.tts_voice)
         if mode == "elevenlabs":
             return ElevenLabsTTS(settings.elevenlabs_api_key)
-        return Pyttsx3TTS()
+        if mode == "pyttsx3":
+            return Pyttsx3TTS()
+        # Default: edge-tts (free, unlimited, multilingual)
+        return EdgeTTS()
     except RuntimeError:
         return MockTTS()

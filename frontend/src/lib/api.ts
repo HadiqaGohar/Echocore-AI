@@ -1,4 +1,10 @@
-import type { Conversation, ApiMessage, VoiceProcessResponse } from "./types";
+import type {
+  Conversation,
+  ApiMessage,
+  VoiceProcessResponse,
+  LanguageCode,
+  VoiceGender,
+} from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -26,19 +32,25 @@ export class ApiClient {
 
   async processVoice(
     audioBlob: Blob,
-    conversationId?: number,
-    sttMode = "local",
-    llmProvider = "gemini",
-    ttsMode = "local"
+    options: {
+      conversationId?: number;
+      sttMode?: string;
+      llmProvider?: string;
+      ttsMode?: string;
+      language?: LanguageCode;
+      voiceGender?: VoiceGender;
+    } = {}
   ): Promise<VoiceProcessResponse> {
     const formData = new FormData();
     formData.append("file", audioBlob, "recording.webm");
-    if (conversationId) {
-      formData.append("conversation_id", String(conversationId));
+    if (options.conversationId) {
+      formData.append("conversation_id", String(options.conversationId));
     }
-    formData.append("stt_mode", sttMode);
-    formData.append("llm_provider", llmProvider);
-    formData.append("tts_mode", ttsMode);
+    formData.append("stt_mode", options.sttMode || "local");
+    formData.append("llm_provider", options.llmProvider || "gemini");
+    formData.append("tts_mode", options.ttsMode || "edge");
+    formData.append("language", options.language || "en");
+    formData.append("voice_gender", options.voiceGender || "female");
 
     const res = await fetch(`${this.baseUrl}/api/voice/process`, {
       method: "POST",

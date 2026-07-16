@@ -1,15 +1,29 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ToggleLeft, ToggleRight, Pause, RotateCcw, Trash2, Volume2 } from "lucide-react";
+import { ToggleLeft, ToggleRight, Pause, RotateCcw, Trash2 } from "lucide-react";
+import LanguageSelector from "./LanguageSelector";
+import type { LanguageCode, VoiceGender } from "@/lib/types";
 
 interface ControlsBarProps {
   mode: "local" | "api";
+  language: LanguageCode;
+  voiceGender: VoiceGender;
   onToggleMode: () => void;
   onClearChat: () => void;
+  onLanguageChange: (lang: LanguageCode) => void;
+  onGenderChange: (gender: VoiceGender) => void;
 }
 
-export default function ControlsBar({ mode, onToggleMode, onClearChat }: ControlsBarProps) {
+export default function ControlsBar({
+  mode,
+  language,
+  voiceGender,
+  onToggleMode,
+  onClearChat,
+  onLanguageChange,
+  onGenderChange,
+}: ControlsBarProps) {
   return (
     <motion.div
       initial={{ y: 10, opacity: 0 }}
@@ -28,18 +42,25 @@ export default function ControlsBar({ mode, onToggleMode, onClearChat }: Control
         {mode === "local" ? "Local" : "API"}
       </button>
 
-      <div className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-        <Volume2 className="h-3.5 w-3.5" />
-        <select className="bg-transparent text-xs outline-none">
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-        </select>
-      </div>
+      <LanguageSelector
+        language={language}
+        voiceGender={voiceGender}
+        onLanguageChange={onLanguageChange}
+        onGenderChange={onGenderChange}
+      />
 
-      <button disabled className="flex h-7 w-7 items-center justify-center rounded-full text-gray-300 opacity-40 dark:text-gray-600" title="Pause">
+      <button
+        disabled
+        className="flex h-7 w-7 items-center justify-center rounded-full text-gray-300 opacity-40 dark:text-gray-600"
+        title="Pause"
+      >
         <Pause className="h-3.5 w-3.5" />
       </button>
-      <button disabled className="flex h-7 w-7 items-center justify-center rounded-full text-gray-300 opacity-40 dark:text-gray-600" title="Replay">
+      <button
+        disabled
+        className="flex h-7 w-7 items-center justify-center rounded-full text-gray-300 opacity-40 dark:text-gray-600"
+        title="Replay"
+      >
         <RotateCcw className="h-3.5 w-3.5" />
       </button>
 

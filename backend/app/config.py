@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
 
     # TTS
-    tts_mode: str = "local"  # "local" or "api"
+    tts_mode: str = "edge"  # "edge" (free) | "pyttsx3" | "openai" | "elevenlabs"
     tts_voice: str = "nova"
     elevenlabs_api_key: str = ""
 

@@ -30,7 +30,9 @@ async def process_voice(
     conversation_id: int | None = Form(default=None),
     stt_mode: str = Form(default="local"),
     llm_provider: str = Form(default="gemini"),
-    tts_mode: str = Form(default="local"),
+    tts_mode: str = Form(default="edge"),
+    language: str = Form(default="en"),
+    voice_gender: str = Form(default="female"),
     session: Session = Depends(get_session),
 ):
     # Validate audio type
@@ -95,6 +97,8 @@ async def process_voice(
             stt_mode=stt_mode,
             llm_provider=llm_provider,
             tts_mode=tts_mode,
+            language=language,
+            voice_gender=voice_gender,
         )
 
         # Save user message

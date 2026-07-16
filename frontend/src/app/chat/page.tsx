@@ -7,7 +7,7 @@ import RecordButton, { type RecordingState } from "@/components/RecordButton";
 import ChatWindow from "@/components/ChatWindow";
 import ControlsBar from "@/components/ControlsBar";
 import { api } from "@/lib/api";
-import type { Message } from "@/lib/types";
+import type { Message, LanguageCode, VoiceGender } from "@/lib/types";
 
 let idCounter = 0;
 
@@ -15,6 +15,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [mode, setMode] = useState<"local" | "api">("local");
+  const [language, setLanguage] = useState<LanguageCode>("en");
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>("female");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,6 @@ export default function ChatPage() {
     if (recordingState === "processing" || recordingState === "speaking") return;
 
     if (recordingState === "idle") {
-      // Start recording
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream, {
@@ -59,15 +60,13 @@ export default function ChatPage() {
         console.error("Microphone error:", err);
       }
     } else if (recordingState === "recording") {
-      // Stop recording
       mediaRecorderRef.current?.stop();
       setRecordingState("processing");
     }
-  }, [recordingState]);
+  }, [recordingState, language, voiceGender, mode, conversationId]);
 
   const processAudio = async (audioBlob: Blob) => {
     try {
-      // Add user message placeholder
       const userMsgId = String(++idCounter);
       setMessages((prev) => [
         ...prev,
@@ -79,27 +78,25 @@ export default function ChatPage() {
         },
       ]);
 
-      const result = await api.processVoice(
-        audioBlob,
-        conversationId || undefined,
-        mode === "local" ? "local" : "api",
-        "gemini",
-        mode === "local" ? "local" : "api"
-      );
+      const result = await api.processVoice(audioBlob, {
+        conversationId: conversationId || undefined,
+        sttMode: mode === "local" ? "local" : "api",
+        llmProvider: "gemini",
+        ttsMode: "edge",
+        language,
+        voiceGender,
+      });
 
-      // Update conversation ID if new
       if (!conversationId) {
         setConversationId(result.conversation_id);
       }
 
-      // Update user message with actual transcript
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === userMsgId ? { ...msg, text: result.transcript } : msg
         )
       );
 
-      // Add AI reply
       const aiMsg: Message = {
         id: String(++idCounter),
         sender: "ai",
@@ -109,7 +106,6 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, aiMsg]);
 
-      // Play audio response
       if (result.audio_url) {
         setRecordingState("speaking");
         const audio = new Audio(api.getAudioUrl(result.audio_url));
@@ -123,7 +119,6 @@ export default function ChatPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setRecordingState("idle");
-      // Remove the processing placeholder
       setMessages((prev) => prev.filter((msg) => msg.text !== "Processing your voice..."));
     }
   };
@@ -135,8 +130,6 @@ export default function ChatPage() {
     audioRef.current?.pause();
     audioRef.current = null;
   };
-
-  const handleToggleMode = () => setMode((p) => (p === "local" ? "api" : "local"));
 
   return (
     <div className="gradient-bg flex h-screen overflow-hidden">
@@ -197,8 +190,12 @@ export default function ChatPage() {
                   <RecordButton state={recordingState} onClick={handleRecordClick} />
                   <ControlsBar
                     mode={mode}
-                    onToggleMode={handleToggleMode}
+                    language={language}
+                    voiceGender={voiceGender}
+                    onToggleMode={() => setMode((p) => (p === "local" ? "api" : "local"))}
                     onClearChat={handleClearChat}
+                    onLanguageChange={setLanguage}
+                    onGenderChange={setVoiceGender}
                   />
                 </div>
               </div>
