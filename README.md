@@ -8,14 +8,23 @@ EchoCore is a voice-powered AI assistant portal that lets you talk to AI using y
 
 ## Features
 
-- Voice Recording with animated mic button
-- Speech-to-Text (STT) — local & API options
-- AI Reply — Gemini, OpenRouter, Ollama support
-- Text-to-Speech (TTS) — local & API options
-- Dark/Light mode toggle
-- Glassmorphism modern UI
-- Conversation history
-- Mobile responsive design
+- **Landing page** — Hero section, features grid, how-it-works, CTA
+- **Chat page** — ChatGPT-style interface with collapsible sidebar
+- **Voice Recording** — Animated mic button with 4 states (idle/recording/processing/speaking)
+- **Conversation History** — Sidebar with grouped history (Today, Yesterday, etc.)
+- **New Chat** — Start fresh conversations
+- **Dark/Light mode** toggle
+- **Glassmorphism + Gradient** modern UI
+- **Fully responsive** — works on mobile & desktop
+
+---
+
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page with hero, features, how-it-works |
+| `/chat` | Voice AI chat with ChatGPT-style sidebar |
 
 ---
 
@@ -36,13 +45,24 @@ EchoCore is a voice-powered AI assistant portal that lets you talk to AI using y
 
 ```
 EchoCore/
-├── frontend/          # Next.js app
-│   ├── src/
-│   │   ├── app/       # Pages (App Router)
-│   │   ├── components/# UI components
-│   │   └── lib/       # Utilities & mock data
-│   └── package.json
-├── backend/           # FastAPI (planned)
+├── frontend/
+│   └── src/
+│       ├── app/
+│       │   ├── page.tsx          # Landing page (/)
+│       │   ├── layout.tsx
+│       │   ├── globals.css
+│       │   └── chat/
+│       │       └── page.tsx      # Chat page (/chat)
+│       ├── components/
+│       │   ├── ChatSidebar.tsx   # ChatGPT-style sidebar
+│       │   ├── ChatHeader.tsx    # Chat page header
+│       │   ├── RecordButton.tsx  # Animated mic button
+│       │   ├── ChatBubble.tsx    # Message bubbles
+│       │   ├── ChatWindow.tsx    # Message list
+│       │   └── ControlsBar.tsx   # Local/API toggle, voice, clear
+│       └── lib/
+│           └── mockData.ts       # Dummy data for testing
+├── backend/                      # FastAPI (planned)
 ├── .gitignore
 └── README.md
 ```
@@ -51,60 +71,33 @@ EchoCore/
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Setup
-
 ```bash
-# Clone the repo
 git clone https://github.com/HadiqaGohar/Echocore.git
 cd Echocore/frontend
-
-# Install dependencies
 npm install
-
-# Run dev server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
+Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
 ## Roadmap
 
-- [x] Frontend UI with mock data
+- [x] Landing page with hero & features
+- [x] Chat page with ChatGPT-style sidebar
+- [x] Conversation history (mock data)
+- [x] New chat / clear chat
 - [x] Record button with state animations
 - [x] Dark/Light mode
-- [x] Chat window with auto-scroll
-- [x] Controls bar (Local/API toggle)
+- [x] Glassmorphism + gradient design
 - [ ] Backend API (FastAPI)
 - [ ] STT integration (faster-whisper / OpenAI)
 - [ ] AI integration (Gemini / OpenRouter)
 - [ ] TTS integration (pyttsx3 / OpenAI)
 - [ ] User authentication (JWT)
-- [ ] Conversation history (SQLite)
+- [ ] Real conversation persistence (SQLite)
 - [ ] Audio waveform visualization
-
----
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a PR.
 
 ---
 

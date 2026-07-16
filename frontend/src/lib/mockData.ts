@@ -5,20 +5,7 @@ export interface Message {
   timestamp: Date;
 }
 
-export const initialMessages: Message[] = [
-  {
-    id: "1",
-    sender: "user",
-    text: "Hello, how are you?",
-    timestamp: new Date(Date.now() - 60000),
-  },
-  {
-    id: "2",
-    sender: "ai",
-    text: "I'm doing great! How can I help you today?",
-    timestamp: new Date(Date.now() - 30000),
-  },
-];
+export const initialMessages: Message[] = [];
 
 export const dummyReplies: string[] = [
   "That's a great question! Let me think about it for a moment. The answer depends on several factors, but in general, I'd suggest approaching it step by step.",

@@ -43,6 +43,7 @@ body {
   font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }
 
+/* Landing page gradient */
 .gradient-bg {
   background: linear-gradient(135deg, #e0e7ff 0%, #f0e6ff 25%, #fce7f3 50%, #e0f2fe 75%, #ede9fe 100%);
   background-size: 400% 400%;
@@ -59,4 +60,9 @@ body {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+}
+
+/* Chat page select styling */
+select {
+  color-scheme: dark;
 }
