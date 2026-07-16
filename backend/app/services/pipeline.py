@@ -1,7 +1,7 @@
 import re
 
 from ..services.stt_service import get_stt_service
-from ..services.llm_service import get_llm_service
+from ..services.llm_service import get_llm_service_with_fallback
 from ..services.tts_service import get_tts_service
 
 SYSTEM_PROMPT = """You are EchoCore, a friendly and helpful voice AI assistant.
@@ -88,7 +88,7 @@ async def run_pipeline(
     Returns dict with: transcript, reply, audio_bytes, audio_content_type, detected_language
     """
     stt = get_stt_service(stt_mode)
-    llm = get_llm_service(llm_provider)
+    llm = get_llm_service_with_fallback(llm_provider)
     tts = get_tts_service(tts_mode)
 
     # Step 1: Speech to Text

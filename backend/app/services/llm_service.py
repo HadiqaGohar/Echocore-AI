@@ -3,6 +3,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite"]
+
 
 class LLMService:
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
@@ -27,12 +29,10 @@ class GeminiLLM(LLMService):
             role = "model" if m["role"] == "assistant" else m["role"]
             contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
-        # Try gemini-2.0-flash first (1500 req/day free), fallback to 1.5-flash
-        models = ["gemini-2.0-flash", "gemini-1.5-flash"]
         last_error = None
-        for model in models:
+        for model in GEMINI_MODELS:
             try:
-                logger.info(f"Trying model: {model}")
+                logger.info(f"Trying Gemini model: {model}")
                 response = await self.client.aio.models.generate_content(
                     model=model, contents=contents
                 )
@@ -41,11 +41,12 @@ class GeminiLLM(LLMService):
                 last_error = e
                 error_str = str(e)
                 if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
-                    logger.warning(f"Model {model} quota exhausted, trying next...")
+                    logger.warning(f"Gemini {model} quota exhausted, trying next...")
                     continue
-                # Non-quota error, raise immediately
+                if "NOT_FOUND" in error_str or "404" in error_str:
+                    logger.warning(f"Gemini {model} not found, trying next...")
+                    continue
                 raise
-        # All models exhausted
         raise last_error
 
 
@@ -119,12 +120,50 @@ def get_llm_service(provider: str = "gemini") -> LLMService:
             return OpenRouterLLM(key)
         if provider == "ollama":
             return OllamaLLM(settings.ollama_base_url)
+        # Default: gemini with openrouter fallback
         key = settings.gemini_api_key
         if not key:
-            logger.warning("GEMINI_API_KEY is empty, using MockLLM")
+            logger.warning("GEMINI_API_KEY is empty")
+            if settings.openrouter_api_key:
+                logger.info("Falling back to OpenRouter (no Gemini key)")
+                return OpenRouterLLM(settings.openrouter_api_key)
             return MockLLM()
         logger.info(f"Using GeminiLLM with key length={len(key)}")
         return GeminiLLM(key)
     except Exception as e:
         logger.error(f"Failed to init LLM provider '{provider}': {e}")
+        try:
+            if settings.openrouter_api_key:
+                logger.info("Gemini init failed, falling back to OpenRouter")
+                return OpenRouterLLM(settings.openrouter_api_key)
+        except Exception:
+            pass
         return MockLLM()
+
+
+class FallbackLLM(LLMService):
+    """LLM that tries primary then falls back to secondary."""
+
+    def __init__(self, primary: LLMService, secondary: LLMService):
+        self.primary = primary
+        self.secondary = secondary
+
+    async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
+        try:
+            return await self.primary.chat(messages, system_prompt)
+        except Exception as e:
+            logger.warning(f"Primary LLM failed: {e}, trying fallback...")
+            return await self.secondary.chat(messages, system_prompt)
+
+
+def get_llm_service_with_fallback(provider: str = "gemini") -> LLMService:
+    """Get LLM with automatic fallback from Gemini to OpenRouter."""
+    from ..config import settings
+
+    primary = get_llm_service(provider)
+
+    if isinstance(primary, GeminiLLM) and settings.openrouter_api_key:
+        fallback = OpenRouterLLM(settings.openrouter_api_key)
+        return FallbackLLM(primary, fallback)
+
+    return primary

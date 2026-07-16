@@ -12,7 +12,7 @@ from ..deps import get_current_user
 from ..models import User, Conversation, Message
 from ..models.analytics import UsageLog
 from ..services.pipeline import run_pipeline
-from ..services.llm_service import get_llm_service
+from ..services.llm_service import get_llm_service, get_llm_service_with_fallback
 from ..services.tts_service import get_tts_service
 from ..utils.audio import save_upload_to_temp, convert_webm_to_wav, cleanup_file
 
@@ -200,7 +200,7 @@ async def process_text(
         history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
         logger.info(f"Text chat: user={current_user.id}, provider={request.llm_provider}, text_len={len(actual_text)}")
-        llm = get_llm_service(request.llm_provider)
+        llm = get_llm_service_with_fallback(request.llm_provider)
         messages = history + [{"role": "user", "content": actual_text}]
         reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
         logger.info(f"LLM reply: {reply[:100]}...")

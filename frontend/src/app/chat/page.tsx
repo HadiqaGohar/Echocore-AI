@@ -31,10 +31,13 @@ export default function ChatPage() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       audioRef.current?.pause();
     };
   }, []);
@@ -44,63 +47,6 @@ export default function ChatPage() {
       router.push("/login");
     }
   }, [user, isLoading, router]);
-
-  const handleRecordClick = useCallback(async () => {
-    if (recordingState === "processing" || recordingState === "speaking") return;
-
-    if (recordingState === "idle") {
-      // Use Web Speech API (free, browser-based STT)
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        setError("Speech recognition not supported in this browser. Use Chrome or Edge.");
-        return;
-      }
-
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-
-        const langMap: Record<string, string> = {
-          en: "en-US", hi: "hi-IN", ur: "ur-PK", ar: "ar-SA",
-          fr: "fr-FR", de: "de-DE", es: "es-ES", tr: "tr-TR", bn: "bn-BD",
-        };
-        recognition.lang = langMap[language] || "en-US";
-
-        recognition.onresult = async (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          recognitionRef.current = null;
-          await processVoiceText(transcript);
-        };
-
-        recognition.onerror = (event: any) => {
-          console.error("Speech recognition error:", event.error);
-          recognitionRef.current = null;
-          setRecordingState("idle");
-          if (event.error === "not-allowed") {
-            setError("Microphone access denied.");
-          } else if (event.error !== "aborted") {
-            setError(`Speech recognition failed: ${event.error}`);
-          }
-        };
-
-        recognition.onend = () => {
-          recognitionRef.current = null;
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-        setRecordingState("recording");
-        setError(null);
-      } catch (err) {
-        setError("Failed to start speech recognition.");
-        setRecordingState("idle");
-      }
-    } else if (recordingState === "recording") {
-      recognitionRef.current?.stop();
-      setRecordingState("processing");
-    }
-  }, [recordingState, language, voiceGender, conversationId]);
 
   const processVoiceText = async (transcript: string) => {
     setRecordingState("processing");
@@ -144,6 +90,153 @@ export default function ChatPage() {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setRecordingState("idle");
       setMessages((prev) => prev.filter((msg) => msg.id !== userMsgId));
+    }
+  };
+
+  const processVoiceAudio = async (audioBlob: Blob) => {
+    setRecordingState("processing");
+    const userMsgId = String(++idCounter);
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, sender: "user", text: "(voice message)", timestamp: new Date() },
+    ]);
+
+    try {
+      const result = await api.processVoice(audioBlob, {
+        conversationId: conversationId || undefined,
+        sttMode: "local",
+        llmProvider: "gemini",
+        ttsMode: "edge",
+        language,
+        voiceGender,
+      });
+
+      if (!conversationId) setConversationId(result.conversation_id);
+
+      // Update the user message with actual transcript
+      setMessages((prev) =>
+        prev.map((m) => (m.id === userMsgId ? { ...m, text: result.transcript } : m))
+      );
+
+      const aiMsg: Message = {
+        id: String(++idCounter),
+        sender: "ai",
+        text: result.reply,
+        audioUrl: result.audio_url || undefined,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+
+      if (result.audio_url) {
+        setRecordingState("speaking");
+        const audio = new Audio(api.getAudioUrl(result.audio_url));
+        audioRef.current = audio;
+        audio.onended = () => setRecordingState("idle");
+        audio.onerror = () => setRecordingState("idle");
+        audio.play().catch(() => setRecordingState("idle"));
+      } else {
+        setRecordingState("idle");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Voice processing failed");
+      setRecordingState("idle");
+      setMessages((prev) => prev.filter((msg) => msg.id !== userMsgId));
+    }
+  };
+
+  const handleRecordClick = useCallback(async () => {
+    if (recordingState === "processing" || recordingState === "speaking") return;
+
+    if (recordingState === "idle") {
+      // Try Web Speech API first (free, browser-based STT)
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = false;
+          recognition.interimResults = false;
+
+          const langMap: Record<string, string> = {
+            en: "en-US", hi: "hi-IN", ur: "ur-PK", ar: "ar-SA",
+            fr: "fr-FR", de: "de-DE", es: "es-ES", tr: "tr-TR", bn: "bn-BD",
+          };
+          recognition.lang = langMap[language] || "en-US";
+
+          recognition.onresult = async (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            recognitionRef.current = null;
+            await processVoiceText(transcript);
+          };
+
+          recognition.onerror = (event: any) => {
+            console.error("Speech recognition error:", event.error);
+            recognitionRef.current = null;
+            if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+              // Fall back to MediaRecorder
+              startMediaRecording();
+            } else if (event.error !== "aborted") {
+              setRecordingState("idle");
+              setError(`Speech recognition failed: ${event.error}`);
+            }
+          };
+
+          recognition.onend = () => {
+            recognitionRef.current = null;
+          };
+
+          recognitionRef.current = recognition;
+          recognition.start();
+          setRecordingState("recording");
+          setError(null);
+          return;
+        } catch (err) {
+          // Web Speech API failed, fall through to MediaRecorder
+        }
+      }
+
+      // Fallback: Use MediaRecorder + server-side STT
+      startMediaRecording();
+    } else if (recordingState === "recording") {
+      // Stop either Web Speech API or MediaRecorder
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      } else if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      setRecordingState("processing");
+    }
+  }, [recordingState, language, voiceGender, conversationId]);
+
+  const startMediaRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        if (audioBlob.size > 0) {
+          await processVoiceAudio(audioBlob);
+        } else {
+          setRecordingState("idle");
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setRecordingState("recording");
+      setError(null);
+    } catch (err) {
+      setRecordingState("idle");
+      setError("Microphone access denied. Please allow microphone access.");
     }
   };
 
@@ -223,8 +316,9 @@ export default function ChatPage() {
               timestamp: new Date(m.created_at),
             }));
             setMessages(mapped);
-          } catch {
-            // ignore
+          } catch (err) {
+            console.error("Failed to load messages:", err);
+            setError("Failed to load conversation messages");
           }
         }}
       />

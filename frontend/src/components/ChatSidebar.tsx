@@ -43,8 +43,8 @@ export default function ChatSidebar({
     try {
       const data = await api.listConversations();
       setConversations(data);
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
     } finally {
       setLoading(false);
     }
