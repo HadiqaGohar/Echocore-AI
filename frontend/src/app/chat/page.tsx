@@ -25,6 +25,7 @@ export default function ChatPage() {
   const [voiceGender, setVoiceGender] = useState<VoiceGender>("female");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [shareId, setShareId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
   const [showFileUpload, setShowFileUpload] = useState(false);
@@ -292,6 +293,7 @@ export default function ChatPage() {
   const handleClearChat = () => {
     setMessages([]);
     setConversationId(null);
+    setShareId(null);
     setError(null);
     audioRef.current?.pause();
     audioRef.current = null;
@@ -303,8 +305,9 @@ export default function ChatPage() {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleClearChat}
-        onSelectConversation={async (id) => {
+        onSelectConversation={async (id, newShareId) => {
           setConversationId(id);
+          setShareId(newShareId);
           setMessages([]);
           try {
             const apiMessages = await api.getMessages(id);
@@ -324,7 +327,7 @@ export default function ChatPage() {
       />
 
       <div className="flex flex-1 flex-col">
-        <ChatHeader onToggleSidebar={() => setSidebarOpen((p) => !p)} />
+        <ChatHeader onToggleSidebar={() => setSidebarOpen((p) => !p)} shareId={shareId} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
           {error && (
@@ -380,6 +383,16 @@ export default function ChatPage() {
                       File
                     </button>
                   </div>
+
+                  <ControlsBar
+                    mode={mode}
+                    language={language}
+                    voiceGender={voiceGender}
+                    onToggleMode={() => setMode((p) => (p === "local" ? "api" : "local"))}
+                    onClearChat={handleClearChat}
+                    onLanguageChange={setLanguage}
+                    onGenderChange={setVoiceGender}
+                  />
                 </>
               )}
             </div>

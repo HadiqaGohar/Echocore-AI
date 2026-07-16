@@ -23,7 +23,7 @@ interface ChatSidebarProps {
   open: boolean;
   onClose: () => void;
   onNewChat: () => void;
-  onSelectConversation: (id: number) => void;
+  onSelectConversation: (id: number, shareId: string) => void;
 }
 
 export default function ChatSidebar({
@@ -181,7 +181,7 @@ export default function ChatSidebar({
               {convs.map((conv) => (
                 <div
                   key={conv.id}
-                  onClick={() => onSelectConversation(conv.id)}
+                  onClick={() => onSelectConversation(conv.id, conv.share_id)}
                   onMouseEnter={() => setHoveredId(conv.id)}
                   onMouseLeave={() => setHoveredId(null)}
                   className="group relative flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-sm text-gray-700 transition-colors hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"

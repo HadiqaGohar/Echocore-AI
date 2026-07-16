@@ -1,10 +1,15 @@
 from datetime import datetime, timezone
+import uuid
 
 from sqlmodel import SQLModel, Field, Relationship
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _share_id() -> str:
+    return uuid.uuid4().hex[:12]
 
 
 class User(SQLModel, table=True):
@@ -20,6 +25,7 @@ class User(SQLModel, table=True):
 class Conversation(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
+    share_id: str = Field(default_factory=_share_id, index=True, unique=True)
     title: str = "New Conversation"
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

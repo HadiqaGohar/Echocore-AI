@@ -8,6 +8,7 @@ export interface Message {
 
 export interface Conversation {
   id: number;
+  share_id: string;
   title: string;
   created_at: string;
   updated_at: string;

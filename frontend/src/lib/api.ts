@@ -265,6 +265,20 @@ export class ApiClient {
     });
   }
 
+  async getSharedConversation(shareId: string): Promise<{ conversation: Conversation; messages: ApiMessage[] }> {
+    const res = await fetch(`${this.baseUrl}/api/conversations/shared/${shareId}`);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || `Shared conversation error: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  getShareUrl(shareId: string): string {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/share/${shareId}`;
+  }
+
   getAudioUrl(path: string): string {
     if (path.startsWith("http")) return path;
     return `${this.baseUrl}${path}`;

@@ -31,6 +31,7 @@ class UserPublic(BaseModel):
 # --- Conversation ---
 class ConversationPublic(BaseModel):
     id: int
+    share_id: str
     title: str
     created_at: datetime
     updated_at: datetime

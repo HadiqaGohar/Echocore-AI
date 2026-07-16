@@ -38,6 +38,44 @@ def create_conversation(
     return conv
 
 
+@router.get("/shared/{share_id}")
+def get_shared_conversation(
+    share_id: str,
+    session: Session = Depends(get_session),
+):
+    """Get a shared conversation by share_id (public, no auth required)."""
+    conv = session.exec(
+        select(Conversation).where(Conversation.share_id == share_id)
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = session.exec(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at)
+    ).all()
+
+    return {
+        "conversation": {
+            "id": conv.id,
+            "share_id": conv.share_id,
+            "title": conv.title,
+            "created_at": conv.created_at.isoformat(),
+        },
+        "messages": [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "audio_url": m.audio_url,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in messages
+        ],
+    }
+
+
 @router.get("/{conv_id}/messages", response_model=list[MessagePublic])
 def get_messages(
     conv_id: int,
