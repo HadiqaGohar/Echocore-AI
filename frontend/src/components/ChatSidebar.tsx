@@ -11,9 +11,12 @@ import {
   Trash2,
   Volume2,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/authContext";
 import type { Conversation } from "@/lib/types";
 
 interface ChatSidebarProps {
@@ -32,6 +35,8 @@ export default function ChatSidebar({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const fetchConversations = useCallback(async () => {
     setLoading(true);
@@ -212,18 +217,22 @@ export default function ChatSidebar({
         <div className="border-t border-black/10 p-3 dark:border-white/10">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
-              EC
+              {user?.username?.charAt(0).toUpperCase() || "U"}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate dark:text-white">
-                EchoCore User
+                {user?.username || "User"}
               </p>
               <p className="text-xs text-gray-400 truncate dark:text-gray-500">
-                Voice Assistant
+                {user?.email || "Voice Assistant"}
               </p>
             </div>
-            <button className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-black/5 hover:text-gray-900 dark:hover:bg-white/10 dark:hover:text-white">
-              <Settings className="h-4 w-4" />
+            <button
+              onClick={() => { logout(); router.push("/login"); }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>

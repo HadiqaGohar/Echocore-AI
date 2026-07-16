@@ -10,6 +10,11 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("echocore-token");
+}
+
 export class ApiClient {
   private baseUrl: string;
 
@@ -17,17 +22,51 @@ export class ApiClient {
     this.baseUrl = baseUrl || API_URL;
   }
 
+  private authHeaders(extra?: Record<string, string>): Record<string, string> {
+    const token = getToken();
+    const headers: Record<string, string> = { ...extra };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...this.authHeaders(),
         ...options.headers,
       },
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(error.detail || `API error: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async register(username: string, email: string, password: string): Promise<{ id: number; username: string; email: string }> {
+    const res = await fetch(`${this.baseUrl}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || `Register error: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async login(username: string, password: string): Promise<{ access_token: string }> {
+    const res = await fetch(`${this.baseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || `Login error: ${res.status}`);
     }
     return res.json();
   }
@@ -56,6 +95,7 @@ export class ApiClient {
 
     const res = await fetch(`${this.baseUrl}/api/voice/process`, {
       method: "POST",
+      headers: this.authHeaders(),
       body: formData,
     });
 
@@ -78,7 +118,10 @@ export class ApiClient {
   ): Promise<VoiceProcessResponse> {
     const res = await fetch(`${this.baseUrl}/api/voice/text`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...this.authHeaders(),
+      },
       body: JSON.stringify({
         text,
         conversation_id: options.conversationId || null,
@@ -109,6 +152,7 @@ export class ApiClient {
 
     const res = await fetch(`${this.baseUrl}/api/tts/convert`, {
       method: "POST",
+      headers: this.authHeaders(),
       body: formData,
     });
 
@@ -132,6 +176,7 @@ export class ApiClient {
 
     const res = await fetch(`${this.baseUrl}/api/tts/download`, {
       method: "POST",
+      headers: this.authHeaders(),
       body: formData,
     });
 
@@ -163,6 +208,7 @@ export class ApiClient {
 
     const res = await fetch(`${this.baseUrl}/api/transcribe/`, {
       method: "POST",
+      headers: this.authHeaders(),
       body: formData,
     });
 
@@ -192,7 +238,10 @@ export class ApiClient {
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) params.append(key, String(value));
     });
-    await fetch(`${this.baseUrl}/api/analytics/log?${params}`, { method: "POST" });
+    await fetch(`${this.baseUrl}/api/analytics/log?${params}`, {
+      method: "POST",
+      headers: this.authHeaders(),
+    });
   }
 
   async listConversations(): Promise<Conversation[]> {

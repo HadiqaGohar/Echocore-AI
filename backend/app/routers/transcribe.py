@@ -2,8 +2,10 @@ import os
 import uuid
 import time
 
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 
+from ..deps import get_current_user
+from ..models import User
 from ..services.stt_service import get_stt_service
 from ..utils.audio import save_upload_to_temp, convert_webm_to_wav, cleanup_file
 
@@ -26,6 +28,7 @@ async def transcribe_file(
     file: UploadFile = File(description="Audio file to transcribe"),
     stt_mode: str = Form(default="local"),
     language: str = Form(default="auto"),
+    current_user: User = Depends(get_current_user),
 ):
     """Upload an audio file and get automatic transcription."""
     if file.content_type and file.content_type not in ALLOWED_AUDIO_TYPES:

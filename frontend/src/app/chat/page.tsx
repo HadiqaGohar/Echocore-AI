@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatHeader from "@/components/ChatHeader";
 import RecordButton, { type RecordingState } from "@/components/RecordButton";
@@ -9,11 +10,14 @@ import ChatInput from "@/components/ChatInput";
 import ControlsBar from "@/components/ControlsBar";
 import FileUpload from "@/components/FileUpload";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/authContext";
 import type { Message, LanguageCode, VoiceGender } from "@/lib/types";
 
 let idCounter = 0;
 
 export default function ChatPage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [mode, setMode] = useState<"local" | "api">("local");
@@ -34,6 +38,12 @@ export default function ChatPage() {
       audioRef.current?.pause();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, isLoading, router]);
 
   const handleRecordClick = useCallback(async () => {
     if (recordingState === "processing" || recordingState === "speaking") return;

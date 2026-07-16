@@ -14,11 +14,14 @@ import {
   Sun,
   Moon,
   Heart,
+  LogIn,
 } from "lucide-react";
 import { useDarkMode } from "@/lib/darkModeContext";
+import { useAuth } from "@/lib/authContext";
 
 export default function LandingPage() {
   const { darkMode, toggleDarkMode } = useDarkMode();
+  const { user } = useAuth();
 
   const features = [
     {
@@ -98,16 +101,41 @@ export default function LandingPage() {
                 <Moon className="h-5 w-5 text-gray-700" />
               )}
             </motion.button>
-            <Link href="/chat">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40"
-              >
-                Launch App
-                <ArrowRight className="h-4 w-4" />
-              </motion.button>
-            </Link>
+            {user ? (
+              <Link href="/chat">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40"
+                >
+                  Go to Chat
+                  <ArrowRight className="h-4 w-4" />
+                </motion.button>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 rounded-xl border border-black/10 bg-white/50 px-4 py-2.5 text-sm font-medium text-gray-700 backdrop-blur-sm transition-colors hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Sign In
+                  </motion.button>
+                </Link>
+                <Link href="/chat">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40"
+                  >
+                    Launch App
+                    <ArrowRight className="h-4 w-4" />
+                  </motion.button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </nav>

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import Conversation, Message
+from ..deps import get_current_user
+from ..models import User, Conversation, Message
 from ..schemas import ConversationPublic, MessagePublic, ConversationCreate
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -11,12 +12,13 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 @router.get("/", response_model=list[ConversationPublic])
 def list_conversations(
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
     offset: int = 0,
     limit: int = 50,
 ):
     return session.exec(
         select(Conversation)
-        .where(Conversation.user_id == 1)
+        .where(Conversation.user_id == current_user.id)
         .order_by(Conversation.updated_at.desc())
         .offset(offset)
         .limit(limit)
@@ -27,8 +29,9 @@ def list_conversations(
 def create_conversation(
     data: ConversationCreate,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    conv = Conversation(title=data.title, user_id=1)
+    conv = Conversation(title=data.title, user_id=current_user.id)
     session.add(conv)
     session.commit()
     session.refresh(conv)
@@ -36,9 +39,13 @@ def create_conversation(
 
 
 @router.get("/{conv_id}/messages", response_model=list[MessagePublic])
-def get_messages(conv_id: int, session: Session = Depends(get_session)):
+def get_messages(
+    conv_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     conv = session.get(Conversation, conv_id)
-    if not conv:
+    if not conv or conv.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return session.exec(
         select(Message)
@@ -48,12 +55,15 @@ def get_messages(conv_id: int, session: Session = Depends(get_session)):
 
 
 @router.delete("/{conv_id}")
-def delete_conversation(conv_id: int, session: Session = Depends(get_session)):
+def delete_conversation(
+    conv_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     conv = session.get(Conversation, conv_id)
-    if not conv:
+    if not conv or conv.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Delete all messages first
     messages = session.exec(
         select(Message).where(Message.conversation_id == conv_id)
     ).all()

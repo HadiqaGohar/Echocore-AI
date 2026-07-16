@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import Conversation, Message
+from ..deps import get_current_user
+from ..models import User, Conversation, Message
 from ..models.analytics import UsageLog
 from ..services.pipeline import run_pipeline
 from ..services.llm_service import get_llm_service
@@ -28,8 +29,6 @@ ALLOWED_AUDIO_TYPES = {
     "audio/x-wav",
     "application/octet-stream",
 }
-
-DEFAULT_USER_ID = 1
 
 SYSTEM_PROMPT = (
     "You are EchoCore, a friendly and helpful voice AI assistant. "
@@ -57,6 +56,7 @@ async def process_voice(
     language: str = Form(default="en"),
     voice_gender: str = Form(default="female"),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     if file.content_type and file.content_type not in ALLOWED_AUDIO_TYPES:
         raise HTTPException(status_code=422, detail=f"Unsupported audio type: {file.content_type}")
@@ -69,10 +69,10 @@ async def process_voice(
 
     if conversation_id:
         conv = session.get(Conversation, conversation_id)
-        if not conv:
+        if not conv or conv.user_id != current_user.id:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conv = Conversation(title="New Conversation", user_id=DEFAULT_USER_ID)
+        conv = Conversation(title="New Conversation", user_id=current_user.id)
         session.add(conv)
         session.commit()
         session.refresh(conv)
@@ -143,11 +143,10 @@ async def process_voice(
         session.commit()
         session.refresh(ai_msg)
 
-        # Log analytics
         try:
             elapsed_ms = (time.time() - start_time) * 1000
             log = UsageLog(
-                user_id=DEFAULT_USER_ID, interaction_type="voice", language=language,
+                user_id=current_user.id, interaction_type="voice", language=language,
                 voice_gender=voice_gender, stt_mode=stt_mode, tts_mode=tts_mode,
                 llm_provider=llm_provider, transcript_length=len(result["transcript"]),
                 reply_length=len(result["reply"]), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
@@ -175,6 +174,7 @@ async def process_voice(
 async def process_text(
     request: TextChatRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """Process text input directly (no STT needed). Accepts JSON body."""
     actual_text = request.text.strip() if request.text else ""
@@ -186,32 +186,28 @@ async def process_text(
     try:
         if request.conversation_id:
             conv = session.get(Conversation, request.conversation_id)
-            if not conv:
+            if not conv or conv.user_id != current_user.id:
                 raise HTTPException(status_code=404, detail="Conversation not found")
         else:
-            conv = Conversation(title=actual_text[:80], user_id=DEFAULT_USER_ID)
+            conv = Conversation(title=actual_text[:80], user_id=current_user.id)
             session.add(conv)
             session.commit()
             session.refresh(conv)
 
-        # Get history
         history_msgs = session.exec(
             select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at)
         ).all()
         history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
-        # LLM
-        logger.info(f"Text chat: provider={request.llm_provider}, text_len={len(actual_text)}")
+        logger.info(f"Text chat: user={current_user.id}, provider={request.llm_provider}, text_len={len(actual_text)}")
         llm = get_llm_service(request.llm_provider)
         messages = history + [{"role": "user", "content": actual_text}]
         reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
         logger.info(f"LLM reply: {reply[:100]}...")
 
-        # TTS
         tts = get_tts_service(request.tts_mode)
         audio_bytes, audio_content_type = await tts.synthesize(reply, language=request.language, voice_gender=request.voice_gender)
 
-        # Save
         user_msg = Message(conversation_id=conv.id, role="user", content=actual_text)
         session.add(user_msg)
 
@@ -232,11 +228,10 @@ async def process_text(
         session.commit()
         session.refresh(ai_msg)
 
-        # Log
         try:
             elapsed_ms = (time.time() - start_time) * 1000
             log = UsageLog(
-                user_id=DEFAULT_USER_ID, interaction_type="text", language=request.language,
+                user_id=current_user.id, interaction_type="text", language=request.language,
                 voice_gender=request.voice_gender, stt_mode="text", tts_mode=request.tts_mode,
                 llm_provider=request.llm_provider, transcript_length=len(actual_text),
                 reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
@@ -264,6 +259,7 @@ async def process_text(
 async def chat_text(
     request: TextChatRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """Chat with text input. Used by browser STT flow - text already transcribed in browser."""
-    return await process_text(request, session)
+    return await process_text(request, session, current_user)

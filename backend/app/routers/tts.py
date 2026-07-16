@@ -2,18 +2,18 @@ import os
 import uuid
 import time
 
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import Response
 from sqlmodel import Session
 
 from ..database import get_session
+from ..deps import get_current_user
+from ..models import User
 from ..models.analytics import TTSRequest
 from ..services.tts_service import get_tts_service
 from ..services.edge_tts_service import EdgeTTSService
 
 router = APIRouter(prefix="/tts", tags=["tts"])
-
-DEFAULT_USER_ID = 1
 
 
 @router.post("/convert")
@@ -22,6 +22,7 @@ async def convert_tts(
     language: str = Form(default="en"),
     voice_gender: str = Form(default="female"),
     tts_mode: str = Form(default="edge"),
+    current_user: User = Depends(get_current_user),
 ):
     """Convert text to speech and return audio bytes."""
     if not text.strip():
@@ -36,12 +37,11 @@ async def convert_tts(
     )
     elapsed = (time.time() - start) * 1000
 
-    # Log the request
     try:
         from ..database import engine
         with Session(engine) as session:
             log = TTSRequest(
-                user_id=DEFAULT_USER_ID,
+                user_id=current_user.id,
                 text=text[:500],
                 language=language,
                 voice_gender=voice_gender,
@@ -69,9 +69,10 @@ async def download_tts(
     language: str = Form(default="en"),
     voice_gender: str = Form(default="female"),
     tts_mode: str = Form(default="edge"),
+    current_user: User = Depends(get_current_user),
 ):
     """Convert text to speech and return as downloadable file."""
-    return await convert_tts(text=text, language=language, voice_gender=voice_gender, tts_mode=tts_mode)
+    return await convert_tts(text=text, language=language, voice_gender=voice_gender, tts_mode=tts_mode, current_user=current_user)
 
 
 @router.get("/voices")

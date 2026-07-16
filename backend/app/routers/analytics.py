@@ -3,59 +3,56 @@ from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, timezone
 
 from ..database import get_session
+from ..deps import get_current_user
+from ..models import User
 from ..models.analytics import UsageLog, TTSRequest
 from ..models.conversation import Conversation, Message
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
-DEFAULT_USER_ID = 1
-
 
 @router.get("/dashboard")
-async def get_dashboard(session: Session = Depends(get_session)):
-    """Get analytics dashboard data."""
+async def get_dashboard(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Get analytics dashboard data for current user."""
+    uid = current_user.id
     now = datetime.now(timezone.utc)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_ago = today - timedelta(days=7)
-    month_ago = today - timedelta(days=30)
 
-    # Total conversations
     total_conversations = session.exec(
-        select(func.count(Conversation.id)).where(Conversation.user_id == DEFAULT_USER_ID)
+        select(func.count(Conversation.id)).where(Conversation.user_id == uid)
     ).one()
 
-    # Total messages
     total_messages = session.exec(
         select(func.count(Message.id)).where(
             Message.conversation_id.in_(
-                select(Conversation.id).where(Conversation.user_id == DEFAULT_USER_ID)
+                select(Conversation.id).where(Conversation.user_id == uid)
             )
         )
     ).one()
 
-    # Conversations today
     conversations_today = session.exec(
         select(func.count(Conversation.id)).where(
-            Conversation.user_id == DEFAULT_USER_ID,
+            Conversation.user_id == uid,
             Conversation.created_at >= today,
         )
     ).one()
 
-    # Messages today
     messages_today = session.exec(
         select(func.count(Message.id)).where(
             Message.conversation_id.in_(
                 select(Conversation.id).where(
-                    Conversation.user_id == DEFAULT_USER_ID,
+                    Conversation.user_id == uid,
                     Conversation.created_at >= today,
                 )
             )
         )
     ).one()
 
-    # Language usage breakdown
     language_stats = {}
-    logs = session.exec(select(UsageLog).where(UsageLog.user_id == DEFAULT_USER_ID)).all()
+    logs = session.exec(select(UsageLog).where(UsageLog.user_id == uid)).all()
     for log in logs:
         lang = log.language
         if lang not in language_stats:
@@ -64,18 +61,15 @@ async def get_dashboard(session: Session = Depends(get_session)):
         t = log.interaction_type
         language_stats[lang]["type_counts"][t] = language_stats[lang]["type_counts"].get(t, 0) + 1
 
-    # Interaction type breakdown
     interaction_stats = {}
     for log in logs:
         t = log.interaction_type
         interaction_stats[t] = interaction_stats.get(t, 0) + 1
 
-    # TTS usage
     tts_requests = session.exec(
-        select(func.count(TTSRequest.id)).where(TTSRequest.user_id == DEFAULT_USER_ID)
+        select(func.count(TTSRequest.id)).where(TTSRequest.user_id == uid)
     ).one()
 
-    # Recent activity (last 7 days)
     daily_activity = []
     for i in range(7):
         day = today - timedelta(days=6 - i)
@@ -84,7 +78,7 @@ async def get_dashboard(session: Session = Depends(get_session)):
             select(func.count(Message.id)).where(
                 Message.conversation_id.in_(
                     select(Conversation.id).where(
-                        Conversation.user_id == DEFAULT_USER_ID,
+                        Conversation.user_id == uid,
                         Conversation.created_at >= day,
                         Conversation.created_at < next_day,
                     )
@@ -97,7 +91,6 @@ async def get_dashboard(session: Session = Depends(get_session)):
             "messages": count,
         })
 
-    # Voice gender stats
     gender_stats = {}
     for log in logs:
         g = log.voice_gender
@@ -129,10 +122,11 @@ async def log_interaction(
     processing_time_ms: float = 0,
     had_audio: bool = True,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """Log an interaction for analytics."""
     log = UsageLog(
-        user_id=DEFAULT_USER_ID,
+        user_id=current_user.id,
         interaction_type=interaction_type,
         language=language,
         voice_gender=voice_gender,
