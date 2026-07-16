@@ -21,7 +21,8 @@ class GeminiLLM(LLMService):
             contents.append({"role": "model", "parts": [{"text": "Understood."}]})
 
         for m in messages:
-            contents.append({"role": m["role"], "parts": [{"text": m["content"]}]})
+            role = "model" if m["role"] == "assistant" else m["role"]
+            contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
         response = await self.client.aio.models.generate_content(
             model="gemini-2.5-flash", contents=contents
