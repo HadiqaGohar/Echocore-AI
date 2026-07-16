@@ -27,10 +27,26 @@ class GeminiLLM(LLMService):
             role = "model" if m["role"] == "assistant" else m["role"]
             contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
-        response = await self.client.aio.models.generate_content(
-            model="gemini-2.5-flash", contents=contents
-        )
-        return response.text
+        # Try gemini-2.0-flash first (1500 req/day free), fallback to 1.5-flash
+        models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+        last_error = None
+        for model in models:
+            try:
+                logger.info(f"Trying model: {model}")
+                response = await self.client.aio.models.generate_content(
+                    model=model, contents=contents
+                )
+                return response.text
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                    logger.warning(f"Model {model} quota exhausted, trying next...")
+                    continue
+                # Non-quota error, raise immediately
+                raise
+        # All models exhausted
+        raise last_error
 
 
 class OpenRouterLLM(LLMService):
