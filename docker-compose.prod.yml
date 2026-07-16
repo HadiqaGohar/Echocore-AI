@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: echocore-backend
+    ports:
+      - "8001:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/audio:/app/audio
+      - echocore-db:/app
+    restart: unless-stopped
+    networks:
+      - echocore-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: echocore-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://echocore-ai.16.jugaar.ai
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - echocore-net
+
+volumes:
+  echocore-db:
+
+networks:
+  echocore-net:
+    driver: bridge
