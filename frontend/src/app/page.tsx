@@ -186,7 +186,7 @@ export default function LandingPage() {
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center gap-2 rounded-2xl border border-black/10 bg-white/60 px-8 py-4 text-base font-bold text-gray-800 backdrop-blur-sm transition-all hover:bg-white/80 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
               >
-                Learn More
+                TTS
               </motion.button>
             </Link>
           </div>
