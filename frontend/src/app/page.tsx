@@ -180,7 +180,7 @@ export default function LandingPage() {
                 Start Talking
               </motion.button>
             </Link>
-            <a href="#features">
+            <Link href="/tts">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -188,7 +188,7 @@ export default function LandingPage() {
               >
                 Learn More
               </motion.button>
-            </a>
+            </Link>
           </div>
         </motion.div>
 
