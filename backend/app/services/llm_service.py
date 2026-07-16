@@ -17,11 +17,11 @@ class GeminiLLM(LLMService):
     async def chat(self, messages: list[dict], system_prompt: str = "") -> str:
         contents = []
         if system_prompt:
-            contents.append({"role": "user", "parts": [system_prompt]})
-            contents.append({"role": "model", "parts": ["Understood."]})
+            contents.append({"role": "user", "parts": [{"text": system_prompt}]})
+            contents.append({"role": "model", "parts": [{"text": "Understood."}]})
 
         for m in messages:
-            contents.append({"role": m["role"], "parts": [m["content"]]})
+            contents.append({"role": m["role"], "parts": [{"text": m["content"]}]})
 
         response = await self.client.aio.models.generate_content(
             model="gemini-2.5-flash", contents=contents
