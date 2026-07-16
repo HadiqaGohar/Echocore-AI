@@ -116,7 +116,7 @@ export class ApiClient {
     formData.append("tts_mode", options.ttsMode || "edge");
     formData.append("language", options.language || "en");
     formData.append("voice_gender", options.voiceGender || "female");
-    formData.append("text_input", text);
+    formData.append("text", text);
 
     const res = await fetch(`${this.baseUrl}/api/voice/text`, {
       method: "POST",

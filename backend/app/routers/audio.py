@@ -78,12 +78,16 @@ async def process_voice(
 
     tmp_path = save_upload_to_temp(audio_bytes, suffix=ext)
     start_time = time.time()
+    wav_path = None
 
     try:
-        if ext != ".wav":
-            wav_path = convert_webm_to_wav(tmp_path)
-        else:
-            wav_path = tmp_path
+        try:
+            if ext != ".wav":
+                wav_path = convert_webm_to_wav(tmp_path)
+            else:
+                wav_path = tmp_path
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Audio conversion failed: {str(e)}")
 
         history_msgs = session.exec(
             select(Message)
@@ -92,15 +96,18 @@ async def process_voice(
         ).all()
         history = [{"role": m.role, "content": m.content} for m in history_msgs]
 
-        result = await run_pipeline(
-            wav_path,
-            conversation_history=history,
-            stt_mode=stt_mode,
-            llm_provider=llm_provider,
-            tts_mode=tts_mode,
-            language=language,
-            voice_gender=voice_gender,
-        )
+        try:
+            result = await run_pipeline(
+                wav_path,
+                conversation_history=history,
+                stt_mode=stt_mode,
+                llm_provider=llm_provider,
+                tts_mode=tts_mode,
+                language=language,
+                voice_gender=voice_gender,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
         user_msg = Message(conversation_id=conv.id, role="user", content=result["transcript"])
         session.add(user_msg)
@@ -153,7 +160,8 @@ async def process_voice(
 
 @router.post("/text")
 async def process_text(
-    text: str = Form(...),
+    text: str = Form(default=None),
+    text_input: str = Form(default=None),
     conversation_id: int | None = Form(default=None),
     llm_provider: str = Form(default="gemini"),
     tts_mode: str = Form(default="edge"),
@@ -162,7 +170,9 @@ async def process_text(
     session: Session = Depends(get_session),
 ):
     """Process text input directly (no STT needed)."""
-    if not text.strip():
+    # Accept either 'text' or 'text_input' field
+    actual_text = text or text_input
+    if not actual_text or not actual_text.strip():
         raise HTTPException(status_code=422, detail="Text cannot be empty")
 
     start_time = time.time()
@@ -172,7 +182,7 @@ async def process_text(
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conv = Conversation(title=text[:80], user_id=DEFAULT_USER_ID)
+        conv = Conversation(title=actual_text[:80], user_id=DEFAULT_USER_ID)
         session.add(conv)
         session.commit()
         session.refresh(conv)
@@ -185,7 +195,7 @@ async def process_text(
 
     # LLM
     llm = get_llm_service(llm_provider)
-    messages = history + [{"role": "user", "content": text}]
+    messages = history + [{"role": "user", "content": actual_text}]
     reply = await llm.chat(messages, system_prompt=SYSTEM_PROMPT)
 
     # TTS
@@ -193,7 +203,7 @@ async def process_text(
     audio_bytes, audio_content_type = await tts.synthesize(reply, language=language, voice_gender=voice_gender)
 
     # Save
-    user_msg = Message(conversation_id=conv.id, role="user", content=text)
+    user_msg = Message(conversation_id=conv.id, role="user", content=actual_text)
     session.add(user_msg)
 
     content_type_to_ext = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3"}
@@ -208,7 +218,7 @@ async def process_text(
     session.add(ai_msg)
 
     if conv.title == "New Conversation":
-        conv.title = text[:80]
+        conv.title = actual_text[:80]
 
     session.commit()
     session.refresh(ai_msg)
@@ -219,7 +229,7 @@ async def process_text(
         log = UsageLog(
             user_id=DEFAULT_USER_ID, interaction_type="text", language=language,
             voice_gender=voice_gender, stt_mode="text", tts_mode=tts_mode,
-            llm_provider=llm_provider, transcript_length=len(text),
+            llm_provider=llm_provider, transcript_length=len(actual_text),
             reply_length=len(reply), processing_time_ms=round(elapsed_ms, 2), had_audio=True,
         )
         session.add(log)
@@ -228,7 +238,7 @@ async def process_text(
         pass
 
     return {
-        "transcript": text,
+        "transcript": actual_text,
         "reply": reply,
         "audio_url": f"/audio/{audio_filename}",
         "conversation_id": conv.id,
