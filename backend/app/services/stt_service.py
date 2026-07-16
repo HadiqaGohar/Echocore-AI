@@ -1,5 +1,8 @@
 import asyncio
+import logging
 from functools import partial
+
+logger = logging.getLogger(__name__)
 
 
 class STTService:
@@ -10,15 +13,16 @@ class STTService:
 class FasterWhisperSTT(STTService):
     """Local STT using faster-whisper."""
 
-    def __init__(self):
+    def __init__(self, model_size: str = "tiny"):
         try:
             from faster_whisper import WhisperModel
         except ImportError:
             raise RuntimeError(
                 "faster-whisper not installed. Run: pip install faster-whisper"
             )
+        logger.info(f"Loading Whisper model: {model_size}")
         self.model = WhisperModel(
-            "large-v3", device="cpu", compute_type="int8"
+            model_size, device="cpu", compute_type="int8"
         )
 
     async def transcribe(self, audio_path: str) -> str:
@@ -72,8 +76,19 @@ def get_stt_service(mode: str = "local") -> STTService:
         try:
             return OpenAIWhisperSTT(settings.openai_api_key)
         except RuntimeError:
-            return MockSTT()
+            logger.warning("OpenAI API key not set, cannot use API STT")
+
+    # Try local faster-whisper first
     try:
-        return FasterWhisperSTT()
+        return FasterWhisperSTT("tiny")
     except RuntimeError:
-        return MockSTT()
+        logger.warning("faster-whisper not installed")
+
+    # Fallback to OpenAI Whisper API if key available
+    try:
+        return OpenAIWhisperSTT(settings.openai_api_key)
+    except RuntimeError:
+        logger.warning("OpenAI API key not set for STT fallback")
+
+    logger.warning("No STT service available, using MockSTT")
+    return MockSTT()

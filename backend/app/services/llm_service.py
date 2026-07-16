@@ -68,7 +68,7 @@ class OpenRouterLLM(LLMService):
         full_messages.extend(messages)
 
         completion = await self.client.chat.completions.create(
-            model="openai/gpt-4o-mini", messages=full_messages
+            model="openai/gpt-4o-mini", messages=full_messages, max_tokens=1024
         )
         return completion.choices[0].message.content
 
