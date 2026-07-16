@@ -61,7 +61,7 @@ export default function ChatPage() {
   const handleToggleMode = () => setMode((p) => (p === "local" ? "api" : "local"));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#212121]">
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#212121]">
       <ChatSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNewChat={handleClearChat} />
 
       <div className="flex flex-1 flex-col">
@@ -71,8 +71,10 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
               <div className="text-center">
-                <h2 className="text-2xl font-semibold text-white">EchoCore</h2>
-                <p className="mt-1 text-sm text-gray-400">How can I help you today?</p>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">EchoCore</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  How can I help you today?
+                </p>
               </div>
               <RecordButton state={recordingState} onClick={handleRecordClick} />
             </div>
@@ -80,7 +82,7 @@ export default function ChatPage() {
             <div className="flex flex-1 flex-col">
               <ChatWindow messages={messages} />
 
-              <div className="border-t border-white/5 px-4 py-4">
+              <div className="border-t border-black/5 px-4 py-4 dark:border-white/5">
                 <div className="mx-auto flex max-w-3xl flex-col items-center gap-4">
                   <RecordButton state={recordingState} onClick={handleRecordClick} />
                   <ControlsBar

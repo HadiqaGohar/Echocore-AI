@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -12,22 +11,14 @@ import {
   Globe,
   ArrowRight,
   MicOff,
-  Loader2,
   Sun,
   Moon,
   Heart,
 } from "lucide-react";
+import { useDarkMode } from "@/lib/darkModeContext";
 
 export default function LandingPage() {
-  const [darkMode, setDarkMode] = useState(false);
-
-  const toggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const next = !prev;
-      document.documentElement.classList.toggle("dark", next);
-      return next;
-    });
-  };
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
   const features = [
     {
@@ -84,7 +75,7 @@ export default function LandingPage() {
   return (
     <div className="gradient-bg flex min-h-screen flex-col">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-white/5 dark:bg-black/20">
+      <nav className="sticky top-0 z-50 border-b border-black/5 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-black/20">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25">
@@ -99,7 +90,7 @@ export default function LandingPage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={toggleDarkMode}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 backdrop-blur-sm transition-colors hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/5 bg-black/5 backdrop-blur-sm transition-colors hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
             >
               {darkMode ? (
                 <Sun className="h-5 w-5 text-yellow-400" />
@@ -129,7 +120,7 @@ export default function LandingPage() {
           transition={{ duration: 0.7 }}
           className="flex flex-col items-center gap-6"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-xs font-medium text-gray-600 backdrop-blur-sm dark:text-gray-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white/60 px-4 py-1.5 text-xs font-medium text-gray-600 backdrop-blur-sm dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
@@ -165,7 +156,7 @@ export default function LandingPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-8 py-4 text-base font-bold text-gray-800 backdrop-blur-sm transition-all hover:bg-white/20 dark:text-white"
+                className="flex items-center gap-2 rounded-2xl border border-black/10 bg-white/60 px-8 py-4 text-base font-bold text-gray-800 backdrop-blur-sm transition-all hover:bg-white/80 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
               >
                 Learn More
               </motion.button>
@@ -173,15 +164,15 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* Hero Visual — 3 icons floating */}
+        {/* Hero Visual */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4, duration: 0.6 }}
           className="relative mt-16 flex items-center gap-6"
         >
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/10 backdrop-blur-md shadow-xl">
-            <MicOff className="h-8 w-8 text-blue-400" />
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-black/5 bg-white/60 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+            <MicOff className="h-8 w-8 text-blue-500 dark:text-blue-400" />
           </div>
           <div className="flex h-14 items-center">
             {[0, 1, 2, 3].map((i) => (
@@ -194,8 +185,8 @@ export default function LandingPage() {
               />
             ))}
           </div>
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/10 backdrop-blur-md shadow-xl">
-            <Brain className="h-8 w-8 text-purple-400" />
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-black/5 bg-white/60 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+            <Brain className="h-8 w-8 text-purple-500 dark:text-purple-400" />
           </div>
           <div className="flex h-14 items-center">
             {[0, 1, 2, 3].map((i) => (
@@ -208,8 +199,8 @@ export default function LandingPage() {
               />
             ))}
           </div>
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/10 backdrop-blur-md shadow-xl">
-            <Volume2 className="h-8 w-8 text-emerald-400" />
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-black/5 bg-white/60 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+            <Volume2 className="h-8 w-8 text-emerald-500 dark:text-emerald-400" />
           </div>
         </motion.div>
       </section>
@@ -239,9 +230,9 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="group relative rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl transition-all hover:bg-white/10 dark:bg-black/20 dark:hover:bg-white/5"
+                className="group rounded-2xl border border-black/5 bg-white/60 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
-                <span className="mb-3 inline-block rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 px-3 py-1 text-xs font-bold text-blue-500 dark:text-blue-400">
+                <span className="mb-3 inline-block rounded-lg bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                   {step.num}
                 </span>
                 <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">
@@ -279,7 +270,7 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl dark:bg-black/20 dark:hover:bg-white/5"
+                className="group rounded-2xl border border-black/5 bg-white/60 p-6 backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/80 hover:shadow-xl dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
                 <div
                   className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.color} shadow-lg ${f.shadow}`}
@@ -304,7 +295,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-xl dark:bg-black/20"
+          className="mx-auto max-w-3xl rounded-3xl border border-black/5 bg-white/60 p-12 text-center backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
         >
           <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
             Ready to try it?
@@ -326,7 +317,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-8">
+      <footer className="border-t border-black/5 py-8 dark:border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">

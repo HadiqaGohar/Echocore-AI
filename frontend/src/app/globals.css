@@ -62,7 +62,8 @@ body {
   100% { background-position: 0% 50%; }
 }
 
-/* Chat page select styling */
-select {
-  color-scheme: dark;
+/* Chat select option styling */
+.dark select option {
+  background-color: #2f2f2f;
+  color: #e5e5e5;
 }

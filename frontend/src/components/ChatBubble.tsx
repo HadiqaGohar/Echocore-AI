@@ -37,13 +37,7 @@ export default function ChatBubble({ message, index }: ChatBubbleProps) {
 
         {/* Content */}
         <div className={`min-w-0 flex-1 ${isUser ? "flex flex-col items-end" : ""}`}>
-          <p
-            className={`text-[15px] leading-relaxed ${
-              isUser
-                ? "text-gray-100"
-                : "text-gray-100"
-            }`}
-          >
+          <p className="text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
             {message.text}
           </p>
         </div>
